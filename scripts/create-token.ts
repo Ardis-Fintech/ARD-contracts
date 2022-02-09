@@ -8,7 +8,9 @@ This will deploy the below contracts:
 */
 async function createARDToken() {
   const ARD = await ethers.getContractFactory("ARDImplementationV1");
-  const ard = await upgrades.deployProxy(ARD, ["ArdisToken","ARD"], {"initializer": "initialize"});
+  const ard = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"], {
+    initializer: "initialize",
+  });
   await ard.deployed();
   console.log("ARD deployed to:", ard.address);
 }

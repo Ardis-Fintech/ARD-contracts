@@ -7,7 +7,7 @@
       "hash": "0x5a289bd91eff5b4e7edd482494439245aff379c32bb29f5b8e836c5d9db6c2bd",
       "type": 2,
       "accessList": [],
-      "blockHash": "0xe4f286908efbb01e54da723e82c7eb52aa9bb864d4fd8c65e375187dfb044eb3",
+      "blockHash": "0x7284a9b1866ddd051d3b762f94cd869af92cc3394b9cda14811fc2df26daa9ac",
       "blockNumber": 2,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -46,6 +46,11 @@
     {
       "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       "txHash": "0x559d4fb3421d3447a404c52447827f2667209b55394a37fc4b89477d3855964d",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "txHash": "0x43569de59d9c39a0b198cec864d6dad22518508f8259b3ba8cd87c15b67f60f0",
       "kind": "transparent"
     }
   ],
