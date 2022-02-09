@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 /**
  * @title ARDImplementationV1
@@ -16,7 +20,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * Any call to transfer against this contract should fail
  * with insufficient funds since no tokens will be issued there.
  */
-contract ARDImplementationV1 is Initializable {
+contract ARDImplementationV1 is ERC20Upgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
     /*****************************************************************
     ** MATH                                                         **
@@ -26,20 +30,12 @@ contract ARDImplementationV1 is Initializable {
     /*****************************************************************
     ** DATA                                                         **
     ******************************************************************/
-    uint256 internal totalSupply_;
-    string public constant name = "ARDIS Token"; // solium-disable-line
-    string public constant symbol = "ARD"; // solium-disable-line uppercase
-    uint8 public constant decimals = 18; // solium-disable-line uppercase
 
-    // OWNER DATA PART 1
-    address public owner;
-
-    // PAUSABILITY DATA
-    bool public paused;
+    uint8 private _decimals;
 
     // ASSET PROTECTION DATA
     address public assetProtectionRole;
-    // mapping(address => bool) internal frozen;
+    mapping(address => bool) internal frozen;
 
     // SUPPLY CONTROL DATA
     address public supplyController;
@@ -47,16 +43,30 @@ contract ARDImplementationV1 is Initializable {
     /*****************************************************************
     ** FUNCTIONALITY                                                **
     ******************************************************************/
+    // This constructor serves the purpose of leaving the implementation contract in an initialized state, 
+    // which is a mitigation against certain potential attacks.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() initializer {
+
+    }
+
     /**
      * @dev sets 0 initials tokens, the owner, and the supplyController.
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-    function initialize() public initializer{
-        owner = msg.sender;
+     uint256 private _totalSupply;
+    function initialize(string memory name_, string memory symbol_) public initializer{
+        __Ownable_init();
+        __ERC20_init(name_, symbol_);
+        _decimals = 8;
+        _totalSupply = 0;
         assetProtectionRole = address(0);
-        totalSupply_ = 0;
         supplyController = msg.sender;
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 
 }
