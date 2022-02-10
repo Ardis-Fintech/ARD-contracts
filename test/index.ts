@@ -4,14 +4,14 @@ import { ethers, upgrades } from "hardhat";
 describe("ERC20 Deployment:", function () {
   it("test token deployment and properties", async () => {
     const [owner] = await ethers.getSigners();
-    console.log("owner: ", owner.address);
+    // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("ARDImplementationV1");
     const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
     await instance.deployed();
 
-    const admin = await upgrades.admin.getInstance();
-    console.log(admin.address);
+    // const admin = await upgrades.admin.getInstance();
+    // console.log(admin.address);
 
     // check token name
     const tokenName = await instance.name();
