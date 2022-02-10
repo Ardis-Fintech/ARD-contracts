@@ -180,6 +180,41 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         }
         
     }
+
+    ///////////////////////////////////////////////////////////////////////
+    // ROLE MANAGEMENT                                                   //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev set the Minter role to specific account
+     * @param _addr The address to assign minter role.
+     */
+    function setMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
+        _setupRole(MINTER_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Burner role to specific account
+     * @param _addr The address to assign burner role.
+     */
+    function setBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
+        _setupRole(BURNER_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Asset Protection role to specific account
+     * @param _addr The address to assign asset protection role.
+     */
+    function setAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+        _setupRole(ASSET_PROTECTION_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Supply Controller role to specific account
+     * @param _addr The address to assign supply controller role.
+     */
+    function setSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+        _setupRole(SUPPLY_CONTROLLER_ROLE, _addr);
+    }
     ///////////////////////////////////////////////////////////////////////
     // ASSET PROTECTION FUNCTIONALITY                                    //
     ///////////////////////////////////////////////////////////////////////
@@ -189,6 +224,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function freeze(address _addr) public onlyAssetProtectionRole {
         require(!frozen[_addr], "address already frozen");
+        //TODO: shouldn't be able to freeze admin,minter,burner,asset protection,supply controller roles
         frozen[_addr] = true;
         emit AddressFrozen(_addr);
     }
