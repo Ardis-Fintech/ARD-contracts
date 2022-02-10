@@ -1921,12 +1921,48 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         uint256 amount
     ) internal override virtual {
 
-        if (from == address(0)) {       // is minting
-            emit SupplyIncreased( to, amount);
-        } else if (to == address(0)) {  // is burning
-            emit SupplyDecreased( from, amount);
+        require(amount>0,"zero amount");
+        if (from == address(0)) {       // is minted
+            
+        } else if (to == address(0)) {  // is burned
+            
         }
         
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+    // ROLE MANAGEMENT                                                   //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev set the Minter role to specific account
+     * @param _addr The address to assign minter role.
+     */
+    function setMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
+        _setupRole(MINTER_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Burner role to specific account
+     * @param _addr The address to assign burner role.
+     */
+    function setBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
+        _setupRole(BURNER_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Asset Protection role to specific account
+     * @param _addr The address to assign asset protection role.
+     */
+    function setAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+        _setupRole(ASSET_PROTECTION_ROLE, _addr);
+    }
+
+    /**
+     * @dev set the Supply Controller role to specific account
+     * @param _addr The address to assign supply controller role.
+     */
+    function setSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+        _setupRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
     ///////////////////////////////////////////////////////////////////////
     // ASSET PROTECTION FUNCTIONALITY                                    //
@@ -1937,6 +1973,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function freeze(address _addr) public onlyAssetProtectionRole {
         require(!frozen[_addr], "address already frozen");
+        //TODO: shouldn't be able to freeze admin,minter,burner,asset protection,supply controller roles
         frozen[_addr] = true;
         emit AddressFrozen(_addr);
     }
@@ -1974,4 +2011,38 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         return frozen[_addr];
     }
 
+
+    ///////////////////////////////////////////////////////////////////////
+    // MINTING / BURNING                                                 //
+    ///////////////////////////////////////////////////////////////////////
+
+    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     */
+    function mint(address account, uint256 amount) public {
+        _mint(account, amount);
+        emit SupplyIncreased( account, amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     * - `account` must have at least `amount` tokens.
+     */
+    function burn(address account, uint256 amount) public {
+        _burn(account, amount);
+        emit SupplyDecreased( account, amount);
+    }
 }

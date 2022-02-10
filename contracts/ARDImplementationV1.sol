@@ -173,10 +173,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         uint256 amount
     ) internal override virtual {
 
-        if (from == address(0)) {       // is minting
-            emit SupplyIncreased( to, amount);
-        } else if (to == address(0)) {  // is burning
-            emit SupplyDecreased( from, amount);
+        require(amount>0,"zero amount");
+        if (from == address(0)) {       // is minted
+            
+        } else if (to == address(0)) {  // is burned
+            
         }
         
     }
@@ -262,4 +263,38 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         return frozen[_addr];
     }
 
+
+    ///////////////////////////////////////////////////////////////////////
+    // MINTING / BURNING                                                 //
+    ///////////////////////////////////////////////////////////////////////
+
+    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     */
+    function mint(address account, uint256 amount) public {
+        _mint(account, amount);
+        emit SupplyIncreased( account, amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     * - `account` must have at least `amount` tokens.
+     */
+    function burn(address account, uint256 amount) public {
+        _burn(account, amount);
+        emit SupplyDecreased( account, amount);
+    }
 }
