@@ -49,6 +49,21 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _;
     }
 
+    modifier onlySupplyController() {
+        require(hasRole(SUPPLY_CONTROLLER_ROLE, msg.sender), "only supply controller role");
+        _;
+    }
+
+    modifier onlyMinterRole() {
+        require(hasRole(MINTER_ROLE, msg.sender), "only minter role");
+        _;
+    }
+
+    modifier onlyBurnerRole() {
+        require(hasRole(BURNER_ROLE, msg.sender), "only burner role");
+        _;
+    }
+
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
@@ -141,16 +156,17 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         uint256 amount
     ) internal override virtual {
         // check the addresses no to be frozen
+        require(!paused(),"is paused");
         require(amount>0, "zero amount");
         require(!frozen[msg.sender], "caller is frozen");
         require(!frozen[from] || from==address(0), "address from is frozen");
         require(!frozen[to] || to==address(0), "address to is frozen");
         // check the roles in case of minting or burning
-        if (from == address(0)) {       // is minting
-            require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
-        } else if (to == address(0)) {  // is burning
-            require(hasRole(BURNER_ROLE, msg.sender), "Caller is not a burner");
-        }
+        // if (from == address(0)) {       // is minting
+        //     require(hasRole(MINTER_ROLE,msg.sender) || hasRole(SUPPLY_CONTROLLER_ROLE,msg.sender), "Caller is not a minter");
+        // } else if (to == address(0)) {  // is burning
+        //     require(hasRole(BURNER_ROLE,msg.sender) || hasRole(SUPPLY_CONTROLLER_ROLE,msg.sender), "Caller is not a burner");
+        // }
     }
 
     /**
@@ -175,47 +191,87 @@ contract ARDImplementationV1 is ERC20Upgradeable,
 
         require(amount>0,"zero amount");
         if (from == address(0)) {       // is minted
-            
+            emit SupplyIncreased( to, amount);
         } else if (to == address(0)) {  // is burned
-            
+            emit SupplyDecreased( from, amount);
         }
         
+    }
+
+    /**
+     * @dev See {IERC20-approve}.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        require(!paused(),"is paused");
+        require(!frozen[msg.sender], "caller is frozen");
+        require(!frozen[spender], "address spender is frozen");
+        _approve(_msgSender(), spender, amount);
+        return true;
     }
 
     ///////////////////////////////////////////////////////////////////////
     // ROLE MANAGEMENT                                                   //
     ///////////////////////////////////////////////////////////////////////
     /**
-     * @dev set the Minter role to specific account
+     * @dev set/revoke the Minter role to specific account
      * @param _addr The address to assign minter role.
      */
     function setMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
         _setupRole(MINTER_ROLE, _addr);
     }
+    function revokeMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
+        _revokeRole(MINTER_ROLE, _addr);
+    }
+    function isMinter(address _addr) public view returns (bool) {
+        return hasRole(MINTER_ROLE, _addr);
+    }
 
     /**
-     * @dev set the Burner role to specific account
+     * @dev set/revoke the Burner role to specific account
      * @param _addr The address to assign burner role.
      */
     function setBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
         _setupRole(BURNER_ROLE, _addr);
     }
+    function revokeBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
+        _revokeRole(BURNER_ROLE, _addr);
+    }
+    function isBurner(address _addr) public view returns (bool) {
+        return hasRole(BURNER_ROLE, _addr);
+    }
 
     /**
-     * @dev set the Asset Protection role to specific account
+     * @dev set/revoke the Asset Protection role to specific account
      * @param _addr The address to assign asset protection role.
      */
     function setAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
         _setupRole(ASSET_PROTECTION_ROLE, _addr);
     }
+    function revokeAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+        _revokeRole(ASSET_PROTECTION_ROLE, _addr);
+    }
+    function isAssetProtection(address _addr) public view returns (bool) {
+        return hasRole(ASSET_PROTECTION_ROLE, _addr);
+    }
 
     /**
-     * @dev set the Supply Controller role to specific account
+     * @dev set/revoke the Supply Controller role to specific account
      * @param _addr The address to assign supply controller role.
      */
     function setSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
         _setupRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
+    function revokeSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+        _revokeRole(SUPPLY_CONTROLLER_ROLE, _addr);
+    }
+    function isSupplyController(address _addr) public view returns (bool) {
+        return hasRole(SUPPLY_CONTROLLER_ROLE, _addr);
+    }
+
     ///////////////////////////////////////////////////////////////////////
     // ASSET PROTECTION FUNCTIONALITY                                    //
     ///////////////////////////////////////////////////////////////////////
@@ -277,9 +333,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      *
      * - `account` cannot be the zero address.
      */
-    function mint(address account, uint256 amount) public {
+    function mint(address account, uint256 amount) public onlyMinterRole {
         _mint(account, amount);
-        emit SupplyIncreased( account, amount);
     }
 
     /**
@@ -293,8 +348,31 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
-    function burn(address account, uint256 amount) public {
+    function burn(address account, uint256 amount) public onlyMinterRole {
         _burn(account, amount);
-        emit SupplyDecreased( account, amount);
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+    // SUPPLY CONTROL                                                    //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev Increases the total supply by minting the specified number of tokens to the supply controller account.
+     * @param _value The number of tokens to add.
+     * @return A boolean that indicates if the operation was successful.
+     */
+    function increaseSupply(uint256 _value) public onlySupplyController returns (bool) {
+        _mint(msg.sender, _value);
+        return true;
+    }
+
+    /**
+     * @dev Decreases the total supply by burning the specified number of tokens from the supply controller account.
+     * @param _value The number of tokens to remove.
+     * @return A boolean that indicates if the operation was successful.
+     */
+    function decreaseSupply(uint256 _value) public onlySupplyController returns (bool) {
+        require(_value <= balanceOf(msg.sender), "not enough supply");
+        _burn(msg.sender, _value);
+        return true;
     }
 }
