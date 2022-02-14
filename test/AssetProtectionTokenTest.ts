@@ -18,6 +18,8 @@ describe("ARD Protection Functionalities", function () {
     await instance.setBurnerRole(burner.address);
     await instance.setSupplyControllerRole(supplyController.address);
     await instance.setAssetProtectionRole(protector.address);
+    // owner by default is asset protector. So, for our tests, first we revoke his role
+    await instance.revokeAssetProtectionRole(owner.address);
     // console.log("roles assigned");
 
     this.token = instance;

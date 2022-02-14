@@ -123,6 +123,12 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         // Grant the contract deployer the default admin role: it will be able
         // to grant and revoke any roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        // Grant the contract deployer all other roles by default
+        _setupRole(MINTER_ROLE, msg.sender);
+        _setupRole(BURNER_ROLE, msg.sender);
+        _setupRole(ASSET_PROTECTION_ROLE, msg.sender);
+        _setupRole(SUPPLY_CONTROLLER_ROLE, msg.sender);
+
         _decimals = 8;
         _totalSupply = 0;
         // assetProtectionRole = address(0);
@@ -259,6 +265,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - the caller must have ``role``'s admin role.
      */
     function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
+        require(account!=address(0),"zero account");
         _grantRole(role, account);
     }
 
