@@ -64,6 +64,10 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _;
     }
 
+    modifier notPaused() {
+        require(!paused(), "is paused");
+        _;
+    }
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
@@ -198,6 +202,9 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         
     }
 
+    ///////////////////////////////////////////////////////////////////////
+    // APPROVE                                                           //
+    ///////////////////////////////////////////////////////////////////////
     /**
      * @dev See {IERC20-approve}.
      *
@@ -214,17 +221,65 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     }
 
     ///////////////////////////////////////////////////////////////////////
+    // PAUSE / UNPAUSE                                                   //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev Triggers stopped state.
+     *
+     * Requirements:
+     *
+     * - The contract must not be paused.
+     */
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Returns to normal state.
+     *
+     * Requirements:
+     *
+     * - The contract must be paused.
+     */
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    ///////////////////////////////////////////////////////////////////////
     // ROLE MANAGEMENT                                                   //
     ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev Grants `role` to `account`.
+     *
+     * If `account` had not been already granted `role`, emits a {RoleGranted}
+     * event.
+     *
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     */
+    function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
+        _grantRole(role, account);
+    }
+
+    /**
+     * @dev Revokes `role` from `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function revokeRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
+        _revokeRole(role, account);
+    }
+
     /**
      * @dev set/revoke the Minter role to specific account
      * @param _addr The address to assign minter role.
      */
-    function setMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
-        _setupRole(MINTER_ROLE, _addr);
+    function setMinterRole(address _addr) public notPaused onlyRole(getRoleAdmin(MINTER_ROLE)) {
+        grantRole(MINTER_ROLE, _addr);
     }
-    function revokeMinterRole(address _addr) public onlyRole(getRoleAdmin(MINTER_ROLE)) {
-        _revokeRole(MINTER_ROLE, _addr);
+    function revokeMinterRole(address _addr) public notPaused onlyRole(getRoleAdmin(MINTER_ROLE)) {
+        revokeRole(MINTER_ROLE, _addr);
     }
     function isMinter(address _addr) public view returns (bool) {
         return hasRole(MINTER_ROLE, _addr);
@@ -234,11 +289,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Burner role to specific account
      * @param _addr The address to assign burner role.
      */
-    function setBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
-        _setupRole(BURNER_ROLE, _addr);
+    function setBurnerRole(address _addr) public notPaused onlyRole(getRoleAdmin(BURNER_ROLE)) {
+        grantRole(BURNER_ROLE, _addr);
     }
-    function revokeBurnerRole(address _addr) public onlyRole(getRoleAdmin(BURNER_ROLE)) {
-        _revokeRole(BURNER_ROLE, _addr);
+    function revokeBurnerRole(address _addr) public notPaused onlyRole(getRoleAdmin(BURNER_ROLE)) {
+        revokeRole(BURNER_ROLE, _addr);
     }
     function isBurner(address _addr) public view returns (bool) {
         return hasRole(BURNER_ROLE, _addr);
@@ -248,11 +303,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Asset Protection role to specific account
      * @param _addr The address to assign asset protection role.
      */
-    function setAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
-        _setupRole(ASSET_PROTECTION_ROLE, _addr);
+    function setAssetProtectionRole(address _addr) public notPaused onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+        grantRole(ASSET_PROTECTION_ROLE, _addr);
     }
-    function revokeAssetProtectionRole(address _addr) public onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
-        _revokeRole(ASSET_PROTECTION_ROLE, _addr);
+    function revokeAssetProtectionRole(address _addr) public notPaused onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+        revokeRole(ASSET_PROTECTION_ROLE, _addr);
     }
     function isAssetProtection(address _addr) public view returns (bool) {
         return hasRole(ASSET_PROTECTION_ROLE, _addr);
@@ -262,11 +317,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Supply Controller role to specific account
      * @param _addr The address to assign supply controller role.
      */
-    function setSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
-        _setupRole(SUPPLY_CONTROLLER_ROLE, _addr);
+    function setSupplyControllerRole(address _addr) public notPaused onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+        grantRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
-    function revokeSupplyControllerRole(address _addr) public onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
-        _revokeRole(SUPPLY_CONTROLLER_ROLE, _addr);
+    function revokeSupplyControllerRole(address _addr) public notPaused onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+        revokeRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
     function isSupplyController(address _addr) public view returns (bool) {
         return hasRole(SUPPLY_CONTROLLER_ROLE, _addr);
