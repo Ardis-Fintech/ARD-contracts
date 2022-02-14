@@ -7,7 +7,8 @@ const MAX_UINT256 = BN.from("2").pow(BN.from("256")).sub(BN.from("1"));
 // Tests that USDP token supply control mechanisms operate correctly.
 describe("ARD", function () {
   beforeEach(async function () {
-    const [owner, minter, burner, supplyController, protector, user1, user2] = await ethers.getSigners();
+    const [owner, minter, burner, supplyController, protector, user1, user2] =
+      await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("ARDImplementationV1");
@@ -39,7 +40,9 @@ describe("ARD", function () {
       });
 
       it("sender should be supply controller", async function () {
-        const supplyController = await this.token.isSupplyController(this.owner.address);
+        const supplyController = await this.token.isSupplyController(
+          this.owner.address
+        );
         assert.equal(supplyController, true);
       });
 
@@ -60,7 +63,8 @@ describe("ARD", function () {
       const amount = 100;
 
       it("reverts when sender is not supply controller", async function () {
-        await expect(this.token.connect(this.user1).increaseSupply(amount)).to.be.reverted;
+        await expect(this.token.connect(this.user1).increaseSupply(amount)).to
+          .be.reverted;
       });
 
       it("adds the requested amount", async function () {
@@ -92,7 +96,8 @@ describe("ARD", function () {
         balance = await this.token.balanceOf(this.owner.address);
         assert.equal(0, balance.toNumber());
         // try to issue more than is possible for a uint256 totalSupply
-        await expect(this.token.connect(this.owner).increaseSupply(bigAmount)).to.be.reverted;
+        await expect(this.token.connect(this.owner).increaseSupply(bigAmount))
+          .to.be.reverted;
         balance = await this.token.balanceOf(this.owner.address);
         assert.equal(0, balance.toNumber());
       });
@@ -105,28 +110,36 @@ describe("ARD", function () {
 
       describe("when the supply controller has insufficient tokens", function () {
         it("reverts", async function () {
-          await expect(this.token.connect(this.owner).decreaseSupply(decreaseAmount)).to.be.reverted;
+          await expect(
+            this.token.connect(this.owner).decreaseSupply(decreaseAmount)
+          ).to.be.reverted;
         });
       });
 
       describe("when the supply controller has sufficient tokens", function () {
         // Issue some tokens to start.
         beforeEach(async function () {
-          await this.token.increaseSupply(initialAmount)
+          await this.token.increaseSupply(initialAmount);
         });
 
         it("reverts when sender is not supply controller", async function () {
-          await expect(this.token.connect(this.user1).decreaseSupply(decreaseAmount)).to.be.reverted;
+          await expect(
+            this.token.connect(this.user1).decreaseSupply(decreaseAmount)
+          ).to.be.reverted;
         });
 
         it("removes the requested amount", async function () {
           await this.token.decreaseSupply(decreaseAmount);
 
           const balance = await this.token.balanceOf(this.owner.address);
-          assert.equal(balance, finalAmount, "supply controller balance matches");
+          assert.equal(
+            balance,
+            finalAmount,
+            "supply controller balance matches"
+          );
 
           const totalSupply = await this.token.totalSupply();
-          assert.equal(totalSupply, finalAmount, "total supply matches")
+          assert.equal(totalSupply, finalAmount, "total supply matches");
         });
 
         it("emits a SupplyDecreased and a Transfer event", async function () {
@@ -147,21 +160,32 @@ describe("ARD", function () {
       });
 
       it("reverts if sender is not owner or roles admin", async function () {
-        await expect(this.token.connect(this.user1.address).setSupplyControllerRole(this.user1.address)).to.be.reverted;
+        await expect(
+          this.token
+            .connect(this.user1.address)
+            .setSupplyControllerRole(this.user1.address)
+        ).to.be.reverted;
       });
 
       it("works if sender is role admin", async function () {
-        await this.token.connect(this.owner).setSupplyControllerRole(this.user1.address);
-        var currentSupplyController = await this.token.isSupplyController(this.user1.address);
+        await this.token
+          .connect(this.owner)
+          .setSupplyControllerRole(this.user1.address);
+        const currentSupplyController = await this.token.isSupplyController(
+          this.user1.address
+        );
         assert.equal(currentSupplyController, true);
       });
 
       it("reverts if newSupplyController is address zero", async function () {
-        await expect(this.token.setSupplyControllerRole(ZERO_ADDRESS)).to.be.reverted;
+        await expect(this.token.setSupplyControllerRole(ZERO_ADDRESS)).to.be
+          .reverted;
       });
 
       it("enables new supply controller to increase and decrease supply", async function () {
-        const currentSupplyController = await this.token.isSupplyController(this.supplyController.address);
+        const currentSupplyController = await this.token.isSupplyController(
+          this.supplyController.address
+        );
         assert.equal(currentSupplyController, true);
 
         let balance = await this.token.balanceOf(this.supplyController.address);
@@ -179,13 +203,17 @@ describe("ARD", function () {
         balance = await this.token.balanceOf(this.supplyController.address);
         assert.equal(balance, 0, "supply controller balance matches");
         totalSupply = await this.token.totalSupply();
-        assert.equal(totalSupply, 0, "total supply matches")
+        assert.equal(totalSupply, 0, "total supply matches");
       });
 
       it("emits a RoleGranted event", async function () {
         await expect(this.token.setSupplyControllerRole(this.user1.address))
           .to.emit(this.token, "RoleGranted")
-          .withArgs(this.token.SUPPLY_CONTROLLER_ROLE, this.user1.address, this.owner.address);
+          .withArgs(
+            this.token.SUPPLY_CONTROLLER_ROLE,
+            this.user1.address,
+            this.owner.address
+          );
       });
     });
   });

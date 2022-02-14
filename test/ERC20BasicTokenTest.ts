@@ -81,12 +81,12 @@ describe("ARD basic functionality", function () {
   describe("transfer", function () {
     // const to = this.user2.address;
     describe("when the recipient is not the zero address", function () {
-
       describe("when the sender does not have enough balance", function () {
         const amount = 100;
 
         it("reverts", async function () {
-          await expect(this.token.transfer(this.user2.address, amount)).to.be.reverted;
+          await expect(this.token.transfer(this.user2.address, amount)).to.be
+            .reverted;
         });
       });
 
@@ -97,19 +97,27 @@ describe("ARD basic functionality", function () {
           // mint token for user1
           await this.token.connect(this.minter).mint(this.user1.address, 100);
           // send amount from user1 to user2
-          await this.token.connect(this.user1).transfer(this.user2.address, amount);
+          await this.token
+            .connect(this.user1)
+            .transfer(this.user2.address, amount);
           // check new balances
           const senderBalance = await this.token.balanceOf(this.user1.address);
           assert.equal(senderBalance, 0);
-          const recipientBalance = await this.token.balanceOf(this.user2.address);
+          const recipientBalance = await this.token.balanceOf(
+            this.user2.address
+          );
           assert.equal(recipientBalance, amount);
         });
 
         it("emits a transfer event", async function () {
           // mint token for user1
-          await this.token.connect(this.minter).mint(this.user1.address, amount);
+          await this.token
+            .connect(this.minter)
+            .mint(this.user1.address, amount);
           // check logs
-          await expect(this.token.connect(this.user1).transfer(this.user2.address, amount))
+          await expect(
+            this.token.connect(this.user1).transfer(this.user2.address, amount)
+          )
             .to.emit(this.token, "Transfer")
             .withArgs(this.user1.address, this.user2.address, amount);
         });

@@ -6,7 +6,8 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 // Test that USDP operates correctly as an Ownable token.
 describe("Ownable ARD", function () {
   beforeEach(async function () {
-    const [owner, minter, burner, supplyController, protector, user1, user2] = await ethers.getSigners();
+    const [owner, minter, burner, supplyController, protector, user1, user2] =
+      await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("ARDImplementationV1");
@@ -52,7 +53,9 @@ describe("Ownable ARD", function () {
     it("should prevent non-owners from transferring ownership", async function () {
       const currentOwner = await this.token.owner();
       assert.notStrictEqual(currentOwner, this.user1.address2);
-      await expect(this.token.connect(this.user1).transferOwnership(this.user2.address)).to.be.reverted;
+      await expect(
+        this.token.connect(this.user1).transferOwnership(this.user2.address)
+      ).to.be.reverted;
     });
   });
 
