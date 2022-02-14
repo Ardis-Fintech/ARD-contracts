@@ -4,7 +4,7 @@ import { ethers, upgrades } from "hardhat";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Test that ARD operates correctly as an ERC20Basic token.
-describe("ERC20 basic functionality", function () {
+describe("ARD basic functionality", function () {
   beforeEach(async function () {
     const [owner, minter, burner, user1, user2] = await ethers.getSigners();
     // console.log("owner: ", owner.address);
