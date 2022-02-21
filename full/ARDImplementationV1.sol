@@ -1749,7 +1749,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
 // File contracts/ARDImplementationV1.sol
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.2;
 pragma experimental ABIEncoderV2;
 
 
@@ -1793,22 +1793,22 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     ** MODIFIERS                                                    **
     ******************************************************************/
     modifier onlyAssetProtectionRole() {
-        require(hasRole(ASSET_PROTECTION_ROLE, msg.sender), "only asset protection role");
+        require(hasRole(ASSET_PROTECTION_ROLE, _msgSender()), "only asset protection role");
         _;
     }
 
     modifier onlySupplyController() {
-        require(hasRole(SUPPLY_CONTROLLER_ROLE, msg.sender), "only supply controller role");
+        require(hasRole(SUPPLY_CONTROLLER_ROLE, _msgSender()), "only supply controller role");
         _;
     }
 
     modifier onlyMinterRole() {
-        require(hasRole(MINTER_ROLE, msg.sender), "only minter role");
+        require(hasRole(MINTER_ROLE, _msgSender()), "only minter role");
         _;
     }
 
     modifier onlyBurnerRole() {
-        require(hasRole(BURNER_ROLE, msg.sender), "only burner role");
+        require(hasRole(BURNER_ROLE, _msgSender()), "only burner role");
         _;
     }
 
@@ -1868,13 +1868,26 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     function initialize(string memory name_, string memory symbol_) public initializer{
         __Ownable_init();
         __ERC20_init(name_, symbol_);
+
+        //set default admin role for all roles
+        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(BURNER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(ASSET_PROTECTION_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, DEFAULT_ADMIN_ROLE);
+
         // Grant the contract deployer the default admin role: it will be able
         // to grant and revoke any roles
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        // Grant the contract deployer all other roles by default
+        _setupRole(MINTER_ROLE, _msgSender());
+        _setupRole(BURNER_ROLE, _msgSender());
+        _setupRole(ASSET_PROTECTION_ROLE, _msgSender());
+        _setupRole(SUPPLY_CONTROLLER_ROLE, _msgSender());
+
         _decimals = 8;
         _totalSupply = 0;
         // assetProtectionRole = address(0);
-        // supplyController = msg.sender;
+        // supplyController = _msgSender();
     }
 
     /**
@@ -1910,14 +1923,14 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         // check the addresses no to be frozen
         require(!paused(),"is paused");
         require(amount>0, "zero amount");
-        require(!frozen[msg.sender], "caller is frozen");
+        require(!frozen[_msgSender()], "caller is frozen");
         require(!frozen[from] || from==address(0), "address from is frozen");
         require(!frozen[to] || to==address(0), "address to is frozen");
         // check the roles in case of minting or burning
         // if (from == address(0)) {       // is minting
-        //     require(hasRole(MINTER_ROLE,msg.sender) || hasRole(SUPPLY_CONTROLLER_ROLE,msg.sender), "Caller is not a minter");
+        //     require(hasRole(MINTER_ROLE,_msgSender()) || hasRole(SUPPLY_CONTROLLER_ROLE,_msgSender()), "Caller is not a minter");
         // } else if (to == address(0)) {  // is burning
-        //     require(hasRole(BURNER_ROLE,msg.sender) || hasRole(SUPPLY_CONTROLLER_ROLE,msg.sender), "Caller is not a burner");
+        //     require(hasRole(BURNER_ROLE,_msgSender()) || hasRole(SUPPLY_CONTROLLER_ROLE,_msgSender()), "Caller is not a burner");
         // }
     }
 
@@ -1962,7 +1975,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function approve(address spender, uint256 amount) public override returns (bool) {
         require(!paused(),"is paused");
-        require(!frozen[msg.sender], "caller is frozen");
+        require(!frozen[_msgSender()], "caller is frozen");
         require(!frozen[spender], "address spender is frozen");
         _approve(_msgSender(), spender, amount);
         return true;
@@ -2007,6 +2020,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - the caller must have ``role``'s admin role.
      */
     function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
+        require(account!=address(0),"zero account");
         _grantRole(role, account);
     }
 
@@ -2020,13 +2034,27 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     }
 
     /**
+     * @dev set/revoke the Role's Admin role to specific account
+     * @param _addr The address to assign minter role.
+     */
+    function setAdminRole(address _addr) public {
+        grantRole(DEFAULT_ADMIN_ROLE, _addr);
+    }
+    function revokeAdminRole(address _addr) public {
+        revokeRole(DEFAULT_ADMIN_ROLE, _addr);
+    }
+    function isRoleAdmin(address _addr) public view returns (bool) {
+        return hasRole(DEFAULT_ADMIN_ROLE, _addr);
+    }
+
+    /**
      * @dev set/revoke the Minter role to specific account
      * @param _addr The address to assign minter role.
      */
-    function setMinterRole(address _addr) public notPaused onlyRole(getRoleAdmin(MINTER_ROLE)) {
+    function setMinterRole(address _addr) public {
         grantRole(MINTER_ROLE, _addr);
     }
-    function revokeMinterRole(address _addr) public notPaused onlyRole(getRoleAdmin(MINTER_ROLE)) {
+    function revokeMinterRole(address _addr) public {
         revokeRole(MINTER_ROLE, _addr);
     }
     function isMinter(address _addr) public view returns (bool) {
@@ -2037,10 +2065,10 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Burner role to specific account
      * @param _addr The address to assign burner role.
      */
-    function setBurnerRole(address _addr) public notPaused onlyRole(getRoleAdmin(BURNER_ROLE)) {
+    function setBurnerRole(address _addr) public {
         grantRole(BURNER_ROLE, _addr);
     }
-    function revokeBurnerRole(address _addr) public notPaused onlyRole(getRoleAdmin(BURNER_ROLE)) {
+    function revokeBurnerRole(address _addr) public {
         revokeRole(BURNER_ROLE, _addr);
     }
     function isBurner(address _addr) public view returns (bool) {
@@ -2051,10 +2079,10 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Asset Protection role to specific account
      * @param _addr The address to assign asset protection role.
      */
-    function setAssetProtectionRole(address _addr) public notPaused onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+    function setAssetProtectionRole(address _addr) public {
         grantRole(ASSET_PROTECTION_ROLE, _addr);
     }
-    function revokeAssetProtectionRole(address _addr) public notPaused onlyRole(getRoleAdmin(ASSET_PROTECTION_ROLE)) {
+    function revokeAssetProtectionRole(address _addr) public {
         revokeRole(ASSET_PROTECTION_ROLE, _addr);
     }
     function isAssetProtection(address _addr) public view returns (bool) {
@@ -2065,10 +2093,10 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev set/revoke the Supply Controller role to specific account
      * @param _addr The address to assign supply controller role.
      */
-    function setSupplyControllerRole(address _addr) public notPaused onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+    function setSupplyControllerRole(address _addr) public {
         grantRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
-    function revokeSupplyControllerRole(address _addr) public notPaused onlyRole(getRoleAdmin(SUPPLY_CONTROLLER_ROLE)) {
+    function revokeSupplyControllerRole(address _addr) public {
         revokeRole(SUPPLY_CONTROLLER_ROLE, _addr);
     }
     function isSupplyController(address _addr) public view returns (bool) {
@@ -2082,7 +2110,9 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev Freezes an address balance from being transferred.
      * @param _addr The new address to freeze.
      */
-    function freeze(address _addr) public onlyAssetProtectionRole {
+    function freeze(address _addr) public notPaused onlyAssetProtectionRole {
+        require(_addr!=owner(), "can't freeze owner");
+        require(_addr!=_msgSender(), "can't freeze itself");
         require(!frozen[_addr], "address already frozen");
         //TODO: shouldn't be able to freeze admin,minter,burner,asset protection,supply controller roles
         frozen[_addr] = true;
@@ -2093,7 +2123,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @dev Unfreezes an address balance allowing transfer.
      * @param _addr The new address to unfreeze.
      */
-    function unfreeze(address _addr) public onlyAssetProtectionRole {
+    function unfreeze(address _addr) public notPaused onlyAssetProtectionRole {
         require(frozen[_addr], "address already unfrozen");
         frozen[_addr] = false;
         emit AddressUnfrozen(_addr);
@@ -2104,7 +2134,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * and setting the approval to zero.
      * @param _addr The new frozen address to wipe.
      */
-    function wipeFrozenAddress(address _addr) public onlyAssetProtectionRole {
+    function wipeFrozenAddress(address _addr) public notPaused onlyAssetProtectionRole {
         require(frozen[_addr], "address is not frozen");
         uint256 _balance = balanceOf(_addr);
         frozen[_addr] = false;
@@ -2151,7 +2181,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
-    function burn(address account, uint256 amount) public onlyMinterRole {
+    function burn(address account, uint256 amount) public onlyBurnerRole {
         _burn(account, amount);
     }
 
@@ -2164,7 +2194,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @return A boolean that indicates if the operation was successful.
      */
     function increaseSupply(uint256 _value) public onlySupplyController returns (bool) {
-        _mint(msg.sender, _value);
+        _mint(_msgSender(), _value);
         return true;
     }
 
@@ -2174,8 +2204,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @return A boolean that indicates if the operation was successful.
      */
     function decreaseSupply(uint256 _value) public onlySupplyController returns (bool) {
-        require(_value <= balanceOf(msg.sender), "not enough supply");
-        _burn(msg.sender, _value);
+        require(_value <= balanceOf(_msgSender()), "not enough supply");
+        _burn(_msgSender(), _value);
         return true;
     }
 }
