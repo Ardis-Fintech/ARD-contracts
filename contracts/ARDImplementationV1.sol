@@ -116,7 +116,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-     uint256 private _totalSupply;
+    //uint256 private _totalSupply;
     function initialize(string memory name_, string memory symbol_) public initializer{
         __Ownable_init();
         __ERC20_init(name_, symbol_);
@@ -137,7 +137,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _setupRole(SUPPLY_CONTROLLER_ROLE, _msgSender());
 
         _decimals = 8;
-        _totalSupply = 0;
+        //_totalSupply = 0;
         // assetProtectionRole = address(0);
         // supplyController = _msgSender();
     }
