@@ -4,6 +4,7 @@ coverage
 coverage.json
 typechain
 tmp
+temp
 notes.txt
 
 #Hardhat files
