@@ -1,4 +1,4 @@
-// Sources flattened with hardhat v2.8.3 https://hardhat.org
+// Sources flattened with hardhat v2.8.4 https://hardhat.org
 
 // File @openzeppelin/contracts/utils/math/SafeMath.sol@v4.4.2
 
@@ -1761,7 +1761,7 @@ pragma experimental ABIEncoderV2;
 /**
  * @title ARDImplementationV1
  * @dev this contract is a Pausable ERC20 token with Burn and Mint
- * controlled by a central SupplyController. By implementing ARDImplementation
+ * controlled by a SupplyController. By implementing ARDImplementation
  * this contract also includes external methods for setting
  * a new implementation contract for the Proxy.
  * NOTE: The storage defined here will actually be held in the Proxy
@@ -1864,7 +1864,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-     uint256 private _totalSupply;
+    //uint256 private _totalSupply;
     function initialize(string memory name_, string memory symbol_) public initializer{
         __Ownable_init();
         __ERC20_init(name_, symbol_);
@@ -1884,10 +1884,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _setupRole(ASSET_PROTECTION_ROLE, _msgSender());
         _setupRole(SUPPLY_CONTROLLER_ROLE, _msgSender());
 
+        // set the number of decimals to 8
         _decimals = 8;
-        _totalSupply = 0;
-        // assetProtectionRole = address(0);
-        // supplyController = _msgSender();
     }
 
     /**
@@ -1912,17 +1910,17 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - when `from` is zero, `amount` tokens will be minted for `to`.
      * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
      * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal override virtual {
-        // check the addresses no to be frozen
+        // check to not to be paused
         require(!paused(),"is paused");
+        // amount has to be more than 0
         require(amount>0, "zero amount");
+        // check the addresses no to be frozen
         require(!frozen[_msgSender()], "caller is frozen");
         require(!frozen[from] || from==address(0), "address from is frozen");
         require(!frozen[to] || to==address(0), "address to is frozen");
@@ -1945,8 +1943,6 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * - when `from` is zero, `amount` tokens have been minted for `to`.
      * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
      * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _afterTokenTransfer(
         address from,
@@ -2018,6 +2014,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * Requirements:
      *
      * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
      */
     function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
         require(account!=address(0),"zero account");
@@ -2027,9 +2025,14 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /**
      * @dev Revokes `role` from `account`.
      *
-     * Internal function without access restriction.
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
      */
     function revokeRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
+        require(account!=address(0),"zero account");
         _revokeRole(role, account);
     }
 
