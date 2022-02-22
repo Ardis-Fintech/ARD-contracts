@@ -1,0 +1,113 @@
+No need to generate any newer typings.
+
+
+  ARD Protection Functionalities
+    when the asset protection role is unset
+      ✓ reverts asset protection actions (41ms)
+    as an asset protectable token
+      after setting the AssetProtectionRole
+        ✓ the current asset protection role is set
+      freeze
+        ✓ reverts when sender is not asset protection
+        ✓ adds the frozen address
+        ✓ emits an AddressFrozen event
+        ✓ reverts when address is already frozen
+        when frozen
+          ✓ reverts when transfer is from frozen address
+          ✓ reverts when transfer is to frozen address
+          ✓ reverts when transferFrom is by frozen address
+          ✓ reverts when transferFrom is from frozen address
+          ✓ reverts when transferFrom is to frozen address
+          ✓ reverts when approve is from the frozen address
+          ✓ reverts when approve spender is the frozen address
+      unfreeze
+        ✓ reverts when address is already unfrozen
+        when already frozen
+          ✓ reverts when sender is not asset protection
+          ✓ removes a frozen address
+          ✓ unfrozen address can transfer again (51ms)
+          ✓ emits an AddressFrozen event
+      wipeFrozenAddress
+        ✓ reverts when address is not frozen
+        when already frozen with assets and approvals
+          ✓ reverts when sender is not asset protection
+          ✓ wipes a frozen address balance
+          ✓ emits an FrozenAddressWiped event
+      setAssetProtectionRole
+        ✓ reverts if sender is not owner or AssetProtectionRole (95ms)
+        ✓ works if sender is AssetProtectionRole
+        ✓ enables new AssetProtectionRole to freeze
+        ✓ prevents old AssetProtectionRole from freezing
+        ✓ emits a AssetProtectionRoleSet event
+
+  ARD basic functionality
+    basic data
+      ✓ has getters for the name, symbol, and decimals
+    total supply
+      ✓ returns the total amount of tokens
+    mint token
+      ✓ mint a few token for test account
+    balanceOf
+      when the requested account has no tokens
+        ✓ returns zero
+      when the requested account has some tokens
+        ✓ returns the total amount of tokens
+    transfer
+      when the recipient is not the zero address
+        when the sender does not have enough balance
+          ✓ reverts
+        when the sender has enough balance
+          ✓ transfers the requested amount (55ms)
+          ✓ emits a transfer event
+      when the recipient is the zero address
+        ✓ reverts
+
+  ERC20 Deployment:
+    ✓ test token deployment and properties (98ms)
+
+  Upgradeability:
+owner:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ✓ test upgrade feature (124ms)
+
+  Ownable ARD
+    as an ownable
+      ✓ should have an owner
+      ✓ should prevent non-owners from transferring ownership
+
+  Pausable ARD
+    ✓ can transfer in non-pause
+    ✓ cannot grant roles in pause (52ms)
+    ✓ cannot transfer in pause
+    ✓ cannot approve/transferFrom in pause
+    ✓ should resume allowing normal process after pause is over (56ms)
+    ✓ cannot unpause when unpaused or pause when paused
+
+  ARD
+    as a supply-controlled token
+      after token creation
+        ✓ sender should be token owner
+        ✓ sender should be supply controller
+        ✓ total supply should be zero
+        ✓ balances should be zero
+      increaseSupply
+        ✓ reverts when sender is not supply controller
+        ✓ adds the requested amount
+        ✓ emits a SupplyIncreased and a Transfer event
+        ✓ cannot increaseSupply resulting in positive overflow of the totalSupply (56ms)
+      decreaseSupply
+        when the supply controller has insufficient tokens
+          ✓ reverts
+        when the supply controller has sufficient tokens
+          ✓ reverts when sender is not supply controller
+          ✓ removes the requested amount
+          ✓ emits a SupplyDecreased and a Transfer event
+      setSupplyController
+        ✓ reverts if sender is not owner or roles admin
+        ✓ works if sender is role admin
+        ✓ reverts if newSupplyController is address zero
+        ✓ enables new supply controller to increase and decrease supply (66ms)
+        ✓ emits a RoleGranted event
+
+
+  63 passing (12s)
+
