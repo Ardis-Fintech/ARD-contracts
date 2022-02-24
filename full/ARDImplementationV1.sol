@@ -1840,7 +1840,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     ** DATA                                                         **
     ******************************************************************/
 
-    uint8 private _decimals;
+    uint8 internal _decimals;
 
     // ASSET PROTECTION DATA
     mapping(address => bool) internal frozen;
@@ -1849,23 +1849,12 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     ** FUNCTIONALITY                                                **
     ******************************************************************/
     /**
-     * This constructor serves the purpose of leaving the implementation contract in an initialized state, 
-     * which is a mitigation against certain potential attacks. An uncontrolled implementation
-     * contract might lead to misleading state for users who accidentally interact with it.
-     */
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        //initialize(name_,symbol_);
-        _pause();
-    }
-
-    /**
      * @dev sets 0 initials tokens, the owner, and the supplyController.
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
     //uint256 private _totalSupply;
-    function initialize(string memory name_, string memory symbol_) public initializer{
+    function _initialize(string memory name_, string memory symbol_) internal {
         __Ownable_init();
         __ERC20_init(name_, symbol_);
 
