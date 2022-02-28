@@ -10,7 +10,7 @@ describe("ARD Protection Functionalities", function () {
       await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
-    const ARD = await ethers.getContractFactory("ARDImplementationV1");
+    const ARD = await ethers.getContractFactory("StakingToken");
     const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
     await instance.deployed();
     // console.log("deployed");
