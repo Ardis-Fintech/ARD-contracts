@@ -16,7 +16,6 @@ import "hardhat/console.sol";
 contract StakingToken is ARDImplementationV1 {
     using SafeMath for uint256;
 
-
     struct Stake {
         uint256 value;
         uint256 stakedAt; 
@@ -35,6 +34,11 @@ contract StakingToken is ARDImplementationV1 {
     Checkpoints.History internal totalStakedHistory;
     
     /**
+     * @dev start/stop staking
+     */
+    bool stakingEnabled;
+
+    /**
      * @dev We usually require to know who are all the stakeholders.
      */
     mapping(address => StakeHolder) internal stakeholders;
@@ -49,6 +53,14 @@ contract StakingToken is ARDImplementationV1 {
      */
     mapping(uint256 => uint256) internal rewardTable;
     mapping(uint256 => uint256) internal punishmentTable;
+
+    /*****************************************************************
+    ** MODIFIERS                                                    **
+    ******************************************************************/
+    modifier onlyActiveStaking() {
+        require(stakingEnabled, "staking protocol stopped");
+        _;
+    }
 
     /*****************************************************************
     ** EVENTS                                                       **
@@ -85,12 +97,31 @@ contract StakingToken is ARDImplementationV1 {
         rewardTable[150] = 200;  // 5.00%
         rewardTable[180] = 200;  // 6.00%
         rewardTable[360] = 200;  // 12.00%
+
+        // init punishment table
+        punishmentTable[30]  = 100;  // 1.00%
+        punishmentTable[60]  = 200;  // 2.00%
+        punishmentTable[90]  = 200;  // 3.00%
+        punishmentTable[150] = 200;  // 5.00%
+        punishmentTable[180] = 200;  // 6.00%
+        punishmentTable[360] = 200;  // 12.00%
     }
 
 
     ///////////////////////////////////////////////////////////////////////
     // STAKING                                                           //
     ///////////////////////////////////////////////////////////////////////
+    /**
+     * @notice enable/disable stoking
+     * @param _enabled enable/disable
+    */
+    function setEnabled(bool _enabled)
+        onlySupplyController
+        public
+    {
+        stakingEnabled=_enabled;
+    }
+
     /**
      * @notice A method for a stakeholder to create a stake.
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
@@ -212,6 +243,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
+        onlyActiveStaking
         returns(uint256)
     {
         //_burn(_msgSender(), _stake);
@@ -247,6 +279,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _unstake(address _stakeholder, uint256 _stakedAt, uint256 _value) 
         internal 
+        onlyActiveStaking
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");
@@ -310,7 +343,7 @@ contract StakingToken is ARDImplementationV1 {
     //     return newStake;
     // }
 
-    function _updateTotalStaked(uint256 _by, bool _increase) internal {
+    function _updateTotalStaked(uint256 _by, bool _increase) internal onlyActiveStaking{
         uint256 currentStake = Checkpoints.latest(totalStakedHistory);
 
         uint256 newStake;

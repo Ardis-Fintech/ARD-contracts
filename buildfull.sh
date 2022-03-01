@@ -1,7 +1,7 @@
 #! /bin/bash
 
 #contracts
-ERC20_ARD_V1=ARDImplementationV1.sol
+ERC20_ARD_V1=StakingToken.sol
 
 #output folder
 OUTPUT=full
