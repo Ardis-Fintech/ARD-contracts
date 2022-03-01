@@ -48,6 +48,7 @@ contract StakingToken is ARDImplementationV1 {
      * @dev The reward per day for each period of locking assets.
      */
     mapping(uint256 => uint256) internal rewardTable;
+    mapping(uint256 => uint256) internal punishmentTable;
 
     /*****************************************************************
     ** EVENTS                                                       **
@@ -100,6 +101,18 @@ contract StakingToken is ARDImplementationV1 {
         public
     {
         rewardTable[_lockPeriod] = _value;
+    }
+
+    /**
+     * @notice A method for a stakeholder to create a stake.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The reward per day for the given lock period
+    */
+    function setPunishment(uint256 _lockPeriod, uint64 _value)
+        onlySupplyController
+        public
+    {
+        punishmentTable[_lockPeriod] = _value;
     }
 
     /**
@@ -417,6 +430,21 @@ contract StakingToken is ARDImplementationV1 {
         uint256 duration = _to.sub(_from);
         uint256 durationDays = duration.div(1 days);
         return durationDays.mul(_value).mul(_rewardPerShare);
+    }
+
+    /** 
+     * @notice A simple method that calculates the punishment for each stakeholder.
+     * @param _from The stakeholder to calculate rewards for.
+     */
+    function _calculatePunishment(uint256 _from, uint256 _to, uint256 _value, uint256 _punishmentPerShare)
+        internal
+        pure
+        returns(uint256)
+    {
+        if (_to<=_from) return 0;
+        uint256 duration = _to.sub(_from);
+        uint256 durationDays = duration.div(1 days);
+        return durationDays.mul(_value).mul(_punishmentPerShare);
     }
 
     // /**
