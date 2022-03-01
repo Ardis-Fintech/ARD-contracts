@@ -34,8 +34,8 @@ describe("Upgradeability:", function () {
     const [owner] = await ethers.getSigners();
     console.log("owner: ", owner.address);
 
-    const ARD1 = await ethers.getContractFactory("ARDImplementationV1");
-    const ARD2 = await ethers.getContractFactory("ARDImplementationV1");
+    const ARD1 = await ethers.getContractFactory("StakingToken");
+    const ARD2 = await ethers.getContractFactory("StakingToken");
 
     const instance = await upgrades.deployProxy(ARD1, ["ArdisToken", "ARD"]);
     await instance.deployed();
