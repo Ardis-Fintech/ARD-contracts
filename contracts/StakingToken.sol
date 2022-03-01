@@ -6,6 +6,8 @@ pragma experimental ABIEncoderV2;
 import "contracts/ARDImplementationV1.sol";
 import "@openzeppelin/contracts/utils/Checkpoints.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Staking Token (STK)
  * @author Alberto Cuesta Canada
@@ -74,6 +76,14 @@ contract StakingToken is ARDImplementationV1 {
      */
     function initialize(string memory name_, string memory symbol_) public initializer{
         _initialize(name_, symbol_);
+
+        // init reward table
+        rewardTable[30]  = 100;  // 1.00%
+        rewardTable[60]  = 200;  // 2.00%
+        rewardTable[90]  = 200;  // 3.00%
+        rewardTable[150] = 200;  // 5.00%
+        rewardTable[180] = 200;  // 6.00%
+        rewardTable[360] = 200;  // 12.00%
     }
 
 
@@ -82,12 +92,25 @@ contract StakingToken is ARDImplementationV1 {
     ///////////////////////////////////////////////////////////////////////
     /**
      * @notice A method for a stakeholder to create a stake.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The reward per day for the given lock period
+    */
+    function setReward(uint256 _lockPeriod, uint64 _value)
+        onlySupplyController
+        public
+    {
+        rewardTable[_lockPeriod] = _value;
+    }
+
+    /**
+     * @notice A method for a stakeholder to create a stake.
      * @param _value The size of the stake to be created.
     */
     function stake(uint256 _value, uint64 _lockPeriod)
         public
+        returns(uint256)
     {
-        _stake(_msgSender(), _value, _lockPeriod);
+        return _stake(_msgSender(), _value, _lockPeriod);
     }
     /**
      * @notice A method to create a stake in behalf of stakeholder.
@@ -96,8 +119,9 @@ contract StakingToken is ARDImplementationV1 {
     function stakeFor(address _stakeholder, uint256 _value, uint64 _lockPeriod)
         public
         onlySupplyController
+        returns(uint256)
     {
-        _stake(_stakeholder, _value, _lockPeriod);
+        return _stake(_stakeholder, _value, _lockPeriod);
     }
 
     /**
@@ -135,6 +159,19 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
+     * @notice A method to retrieve the stakes for a stakeholder.
+     * @param _stakeholder The stakeholder to retrieve the stake for.
+     * @return staking history.
+     */
+    function stakes(address _stakeholder)
+        public
+        view
+        returns(Stake[] memory)
+    {
+        return(stakeholders[_stakeholder].stakes);
+    }
+
+    /**
      * @notice A method to the aggregated stakes from all stakeholders.
      * @return uint256 The aggregated stakes from all stakeholders.
      */
@@ -162,6 +199,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
+        returns(uint256)
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");
@@ -174,20 +212,19 @@ contract StakingToken is ARDImplementationV1 {
         
         uint256 pos = stakeholders[_stakeholder].stakes.length;
         uint256 old = stakeholders[_stakeholder].totalStaked;
-        if (pos > 0 && stakeholders[_stakeholder].stakes[pos - 1].stakedAt == block.number && 
+        if (pos > 0 && stakeholders[_stakeholder].stakes[pos - 1].stakedAt == block.timestamp && 
             stakeholders[_stakeholder].stakes[pos - 1].lockPeriod == _lockPeriod) {
-                stakeholders[_stakeholder].stakes[pos - 1].value.add(_value);
+                stakeholders[_stakeholder].stakes[pos - 1].value = stakeholders[_stakeholder].stakes[pos - 1].value.add(_value);
         } else {
-            stakeholders[_stakeholder].stakes.push(
-                Stake({stakedAt: block.number, value: _value, lockPeriod: _lockPeriod})
-            );
+            stakeholders[_stakeholder].stakes.push(Stake(_value, block.timestamp, _lockPeriod));
+            pos++;
         }
-        stakeholders[_stakeholder].totalStaked.add(_value);
-
+        stakeholders[_stakeholder].totalStaked = stakeholders[_stakeholder].totalStaked.add(_value);
         // checkpoint total supply
         _updateTotalStaked(_value, true);
 
         emit Staked(_stakeholder,_value, stakeholders[_stakeholder].totalStaked, old);
+        return(stakeholders[_stakeholder].stakes[pos-1].stakedAt);
     }
 
     /**
@@ -219,21 +256,28 @@ contract StakingToken is ARDImplementationV1 {
         require(found,"stake not exist");
         require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"stake not exist");
         // deduct unstaked amount from locked ARDs
-        stakeholders[_stakeholder].stakes[stakeIndex].value.sub(_value);
+        stakeholders[_stakeholder].stakes[stakeIndex].value = stakeholders[_stakeholder].stakes[stakeIndex].value.sub(_value);
         if (stakeholders[_stakeholder].stakes[stakeIndex].value==0) {
-            delete stakeholders[_stakeholder].stakes[stakeIndex];
+            removeStakeRecord(_stakeholder, stakeIndex);
         }
-        stakeholders[_stakeholder].totalStaked.sub(_value);
+        stakeholders[_stakeholder].totalStaked = stakeholders[_stakeholder].totalStaked.sub(_value);
 
         // checkpoint total supply
         _updateTotalStaked(_value, false);
 
         //if no any stakes, remove stake holder
         if (stakeholders[_stakeholder].totalStaked==0) {
-            delete stakeholders[_stakeholder];
+           delete stakeholders[_stakeholder];
         }
 
         emit Unstaked(_stakeholder, _value, stakeholders[_stakeholder].totalStaked, old);
+    }
+
+    function removeStakeRecord(address _stakeholder, uint index) internal{
+        for(uint i = index; i < stakeholders[_stakeholder].stakes.length-1; i++){
+            stakeholders[_stakeholder].stakes[i] = stakeholders[_stakeholder].stakes[i+1];      
+        }
+        stakeholders[_stakeholder].stakes.pop();
     }
 
     // function _updateStakeBalance(address _user, uint256 _by, bool _increase) internal returns (uint256) {
