@@ -89,7 +89,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function initialize(string memory name_, string memory symbol_) public initializer{
         _initialize(name_, symbol_);
-
+        
         // init reward table
         rewardTable[30]  = 100;  // 1.00%
         rewardTable[60]  = 200;  // 2.00%
@@ -105,6 +105,9 @@ contract StakingToken is ARDImplementationV1 {
         punishmentTable[150] = 200;  // 5.00%
         punishmentTable[180] = 200;  // 6.00%
         punishmentTable[360] = 200;  // 12.00%
+
+        //enable staking by default
+        setEnabled(true);
     }
 
 
