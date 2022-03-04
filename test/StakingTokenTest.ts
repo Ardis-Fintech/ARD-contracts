@@ -1,11 +1,24 @@
-import { assert/*, expect*/ } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { assert, expect } from "chai";
+import { ethers, upgrades, network } from "hardhat";
 
 // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const TOKEN_BANK_ADDRESS = "0x83E79f1E007fF061D593055BE6c555e87ECaee83";
 
+const timeTravel = async (_days: number) => {
+  const timeTravelInDays = _days * 24 * 60 * 60;
+  const blockNumBefore = await ethers.provider.getBlockNumber();
+  const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+  const timestampBefore = blockBefore.timestamp;
+  await ethers.provider.send('evm_increaseTime', [timeTravelInDays]);
+  await ethers.provider.send('evm_mine', []);
+  const blockNumAfter = await ethers.provider.getBlockNumber();
+  const blockAfter = await ethers.provider.getBlock(blockNumAfter);
+  const timestampAfter = blockAfter.timestamp;
+  return timestampAfter === timestampBefore + timeTravelInDays;
+};
+
 // Test that ARD operates correctly as an ERC20Basic token.
-describe("ARD Staking functionality", function () {
+describe("ARD Staking protocol", function () {
   beforeEach(async function () {
     const [owner, minter, burner, supplyController, user1, user2] = await ethers.getSigners();
     // console.log("owner: ", owner.address);
@@ -15,6 +28,8 @@ describe("ARD Staking functionality", function () {
     await instance.deployed();
 
     await instance.setTokenBank(TOKEN_BANK_ADDRESS);
+    const tokenBank = await instance.getTokenBank();
+    assert.equal(tokenBank, TOKEN_BANK_ADDRESS);
     // console.log("deployed");
 
     await instance.setMinterRole(minter.address);
@@ -81,6 +96,126 @@ describe("ARD Staking functionality", function () {
       // check total staked in contract
       const totalStakedAfterNewUnstake = await this.token.totalStakes();
       assert.equal(totalStakedAfterNewUnstake, 100);
+    });
+
+    it("test rewards after completing lock period", async function () {
+      await this.token.connect(this.user1).stake(100, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 900);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 100);
+
+      // let move timestamp and do time travel
+      const timeTravelInDays = 30 * 24 * 60 * 60;
+
+      const blockNumBefore = await ethers.provider.getBlockNumber();
+      const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+      const timestampBefore = blockBefore.timestamp;
+
+      await ethers.provider.send('evm_increaseTime', [timeTravelInDays]);
+      await ethers.provider.send('evm_mine', []);
+
+      const blockNumAfter = await ethers.provider.getBlockNumber();
+      const blockAfter = await ethers.provider.getBlock(blockNumAfter);
+      const timestampAfter = blockAfter.timestamp;
+
+      expect(blockNumAfter).to.be.equal(blockNumBefore + 1);
+      expect(timestampAfter).to.be.equal(timestampBefore + timeTravelInDays);
+
+      // await network.provider.send("evm_setNextBlockTimestamp", [1625097600])
+      // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
+
+      // unstake 100 ARDs for user1
+      const user1Reward = await this.token.rewardOf(this.user1.address);
+      assert.equal(user1Reward, 1);
+
+      await this.token.connect(this.user1).unstake(1, 100);
+      const userCurStaked = await this.token.stakeOf(this.user1.address);
+      assert.equal(userCurStaked, 0);
+
+    });
+
+    it("test punishment after withdraw stake earlier than lock period", async function () {
+      await this.token.connect(this.user1).stake(100, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 900);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 100);
+
+      // let move timestamp and do time travel
+      const timeTravelInDays = 29 * 24 * 60 * 60;
+
+      const blockNumBefore = await ethers.provider.getBlockNumber();
+      const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+      const timestampBefore = blockBefore.timestamp;
+
+      await ethers.provider.send('evm_increaseTime', [timeTravelInDays]);
+      await ethers.provider.send('evm_mine', []);
+
+      const blockNumAfter = await ethers.provider.getBlockNumber();
+      const blockAfter = await ethers.provider.getBlock(blockNumAfter);
+      const timestampAfter = blockAfter.timestamp;
+
+      expect(blockNumAfter).to.be.equal(blockNumBefore + 1);
+      expect(timestampAfter).to.be.equal(timestampBefore + timeTravelInDays);
+
+      // await network.provider.send("evm_setNextBlockTimestamp", [1625097600])
+      // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
+
+      // unstake 100 ARDs for user1
+      const user1Reward = await this.token.rewardOf(this.user1.address);
+      assert.equal(user1Reward, 0);
+
+      await this.token.connect(this.user1).unstake(1, 100);
+      const userCurStaked = await this.token.stakeOf(this.user1.address);
+      assert.equal(userCurStaked, 0);
+
+      const userNewBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userNewBal, 999);
+
+      // check token bank balance
+      const tokenBankBalance = await this.token.balanceOf(TOKEN_BANK_ADDRESS);
+      assert.equal(tokenBankBalance, 1);
+    });
+  });
+
+  describe("test more complicated scenarios for staking rewards and punishments", function () {
+    it("test reward after changing rates", async function () {
+      await this.token.connect(this.user1).stake(100, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 900);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 100);
+
+      // move timestamp to 10 days later
+      await timeTravel(10);
+
+      // set new reward rate after 10 days of staking
+      await this.token.setReward(30, 200);
+
+      // move timestamp again to 10 days later
+      await timeTravel(10);
+
+      // set new reward rate after 20 days of staking
+      await this.token.setReward(30, 500);
+
+      // move timestamp again to 10 days later
+      await timeTravel(10);
+
+      // unstake 100 ARDs for user1
+      const user1Reward = await this.token.rewardOf(this.user1.address);
+      console.log(user1Reward);
+      // assert.equal(user1Reward, 1);
+
+      // await this.token.connect(this.user1).unstake(1, 100);
+      // const userCurStaked = await this.token.stakeOf(this.user1.address);
+      // assert.equal(userCurStaked, 0);
     });
   });
 });

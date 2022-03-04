@@ -45,17 +45,22 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev token bank for storing the punishments
      */
-    address private tokenBank;
+    address internal tokenBank;
 
     /**
      * @dev start/stop staking
      */
-    bool stakingEnabled;
+    bool internal stakingEnabled;
     
     /**
      * @dev The minimum amount of tokens to stake
      */
-    uint256 minStake;
+    uint256 internal minStake;
+
+    /**
+     * @dev The id of the last stake
+     */
+    uint256 internal lastStakeID;
 
     /**
      * @dev staking history
@@ -134,6 +139,9 @@ contract StakingToken is ARDImplementationV1 {
         setPunishment(180, 200);  // 6.00%
         setPunishment(360, 200);  // 12.00%
 
+        // set last stake id
+        lastStakeID = 0;
+
         //enable staking by default
         setEnabled(true);
     }
@@ -148,6 +156,19 @@ contract StakingToken is ARDImplementationV1 {
     {
         tokenBank=_tb;
     }
+
+    /**
+     * @dev set token bank account address
+     * @return address of the token bank account 
+    */
+    function getTokenBank()
+        public
+        view
+        returns(address)
+    {
+        return tokenBank;
+    }    
+    
     ///////////////////////////////////////////////////////////////////////
     // STAKING                                                           //
     ///////////////////////////////////////////////////////////////////////
@@ -296,10 +317,11 @@ contract StakingToken is ARDImplementationV1 {
             stakeholders[_stakeholder].stakes[pos - 1].lockPeriod == _lockPeriod) {
                 stakeholders[_stakeholder].stakes[pos - 1].value = stakeholders[_stakeholder].stakes[pos - 1].value.add(_value);
         } else {
-            uint256 _id = 1;
-            if (pos > 0) _id = stakeholders[_stakeholder].stakes[pos - 1].id.add(1);
+            // uint256 _id = 1;
+            // if (pos > 0) _id = stakeholders[_stakeholder].stakes[pos - 1].id.add(1);
+            lastStakeID++;
             stakeholders[_stakeholder].stakes.push(Stake({
-                id: _id,
+                id: lastStakeID,
                 stakedAt: block.timestamp,
                 value: _value,
                 lockPeriod: _lockPeriod
@@ -333,18 +355,15 @@ contract StakingToken is ARDImplementationV1 {
         uint256 stakeIndex;
         bool found = false;
         for (stakeIndex = 0; stakeIndex < stakeholders[_stakeholder].stakes.length; stakeIndex += 1){
-            console.log("id -> ",stakeholders[_stakeholder].stakes[stakeIndex].id);
             if (stakeholders[_stakeholder].stakes[stakeIndex].id == _stakedID) {
                 found = true;
                 break;
             }
         }
-        console.log("found: ",found);
         require(found,"stake not exist");
         require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"not enough stake");
         uint256 _stakedAt = stakeholders[_stakeholder].stakes[stakeIndex].stakedAt;
         require(block.timestamp>=_stakedAt,"invalid stake");
-        console.log("unstake 2: OK");
         // make decision about reward/punishment
         uint256 stakingDays = (block.timestamp - _stakedAt) / (1 days);
         if (stakingDays>=stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod) {
@@ -362,14 +381,11 @@ contract StakingToken is ARDImplementationV1 {
                 stakeholders[_stakeholder].stakes[stakeIndex].value,
                 stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
             _punishment = _punishment<_value ? _punishment : _value;
-            console.log("_punishment: ",_punishment);
             //If there is punishment, send them to tokenBank
             if (_punishment>0) {
                 _transfer(address(this), tokenBank, _punishment); 
             }
-            console.log("_punishment: transfered ");
             uint256 withdrawal = _value.sub( _punishment );
-            console.log("withdrawal: ",withdrawal);
             if (withdrawal>0) {
                 _transfer(address(this), _stakeholder, withdrawal);
             }
@@ -420,8 +436,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev A method to check if an address is a stakeholder.
      * @param _address The address to verify.
-     * @return bool, uint256 Whether the address is a stakeholder, 
-     * and if so its position in the stakeholders array.
+     * @return bool Whether the address is a stakeholder
      */
     function isStakeholder(address _address)
         public
@@ -584,7 +599,7 @@ contract StakingToken is ARDImplementationV1 {
         for (rIndex = _history.rates.length-1; rIndex>0; rIndex-- ) {
             if (rIndex<_from) break;
         }
-        // if rate hasn't been changed during the staking period, just calculate whole period using same rate
+        // if rate has been constant during the staking period, just calculate whole period using same rate
         if (rIndex==_history.rates.length-1) {
             return _value.mul(_history.rates[rIndex].rate).div(10000);  //10000 ~ 100.00
         }

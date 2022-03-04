@@ -4125,38 +4125,68 @@ library console {
 pragma solidity ^0.8.2;
 pragma experimental ABIEncoderV2;
 
-//import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 
 /**
  * @title Staking Token (STK)
- * @author Alberto Cuesta Canada
- * @notice Implements a basic ERC20 staking token with incentive distribution.
+ * @author Gheis Mohammadi
+ * @dev Implements a staking Protocol using ARD token.
  */
 contract StakingToken is ARDImplementationV1 {
     using SafeMath for uint256;
+    using SafeMath for uint64;
 
+    /*****************************************************************
+    ** STRUCTS & VARIABLES                                          **
+    ******************************************************************/
     struct Stake {
-        uint256 value;
+        uint256 id;
         uint256 stakedAt; 
+        uint256 value;
         uint64  lockPeriod;
     }
 
     struct StakeHolder {
-        //mapping (address => Lock) locks; // Mapping of lock manager => lock info
         uint256 totalStaked;
-        //uint256 totalReward;
         Stake[] stakes;
-        //Checkpointing.History stakedHistory;
     }
 
-    
-    Checkpoints.History internal totalStakedHistory;
-    
+    struct Rate {
+        uint256 timestamp;
+        uint256 rate;
+    }
+
+    struct RateHistory {
+        Rate[] rates;
+    }
+
+    /*****************************************************************
+    ** STATES                                                       **
+    ******************************************************************/
+    /**
+     * @dev token bank for storing the punishments
+     */
+    address internal tokenBank;
+
     /**
      * @dev start/stop staking
      */
-    bool stakingEnabled;
+    bool internal stakingEnabled;
+    
+    /**
+     * @dev The minimum amount of tokens to stake
+     */
+    uint256 internal minStake;
+
+    /**
+     * @dev The id of the last stake
+     */
+    uint256 internal lastStakeID;
+
+    /**
+     * @dev staking history
+     */
+    Checkpoints.History internal totalStakedHistory;
 
     /**
      * @dev We usually require to know who are all the stakeholders.
@@ -4164,15 +4194,14 @@ contract StakingToken is ARDImplementationV1 {
     mapping(address => StakeHolder) internal stakeholders;
 
     /**
-     * @dev The stakes for each stakeholder.
+     * @dev The reward rate history per locking period
      */
-    // mapping(address => uint256) internal stakes;
+    mapping(uint256 => RateHistory) internal rewardTable;
+     /**
+     * @dev The punishment rate history per locking period 
+     */
+    mapping(uint256 => RateHistory) internal punishmentTable;
 
-    /**
-     * @dev The reward per day for each period of locking assets.
-     */
-    mapping(uint256 => uint256) internal rewardTable;
-    mapping(uint256 => uint256) internal punishmentTable;
 
     /*****************************************************************
     ** MODIFIERS                                                    **
@@ -4188,6 +4217,8 @@ contract StakingToken is ARDImplementationV1 {
     event Staked(address indexed from, uint256 amount, uint256 newStake, uint256 oldStake);
     event Unstaked(address indexed from, uint256 amount, uint256 newStake, uint256 oldStake);
 
+    event RewardRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
+    event PunishmentRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
     /*****************************************************************
     ** FUNCTIONALITY                                                **
     ******************************************************************/
@@ -4203,36 +4234,67 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev sets 0 initials tokens, the owner, and the supplyController.
+     * @dev initials tokens, roles, staking settings and so on.
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
     function initialize(string memory name_, string memory symbol_) public initializer{
         _initialize(name_, symbol_);
+        
+        // contract can mint the rewards
+        setMinterRole(address(this));
 
-        // init reward table
-        rewardTable[30]  = 100;  // 1.00%
-        rewardTable[60]  = 200;  // 2.00%
-        rewardTable[90]  = 200;  // 3.00%
-        rewardTable[150] = 200;  // 5.00%
-        rewardTable[180] = 200;  // 6.00%
-        rewardTable[360] = 200;  // 12.00%
+        // init reward table   
+        setReward(30, 100);   // 1.00%
+        setReward(60, 200);   // 2.00%
+        setReward(90, 200);   // 3.00%
+        setReward(150, 200);  // 5.00%
+        setReward(180, 200);  // 6.00%
+        setReward(360, 200);  // 12.00%
 
         // init punishment table
-        punishmentTable[30]  = 100;  // 1.00%
-        punishmentTable[60]  = 200;  // 2.00%
-        punishmentTable[90]  = 200;  // 3.00%
-        punishmentTable[150] = 200;  // 5.00%
-        punishmentTable[180] = 200;  // 6.00%
-        punishmentTable[360] = 200;  // 12.00%
+        setPunishment(30, 100);   // 1.00%
+        setPunishment(60, 200);   // 2.00%
+        setPunishment(90, 200);   // 3.00%
+        setPunishment(150, 200);  // 5.00%
+        setPunishment(180, 200);  // 6.00%
+        setPunishment(360, 200);  // 12.00%
+
+        // set last stake id
+        lastStakeID = 0;
+
+        //enable staking by default
+        setEnabled(true);
     }
 
+    /**
+     * @dev set token bank account address
+     * @param _tb address of the token bank account 
+    */
+    function setTokenBank(address _tb)
+        onlySupplyController
+        public
+    {
+        tokenBank=_tb;
+    }
 
+    /**
+     * @dev set token bank account address
+     * @return address of the token bank account 
+    */
+    function getTokenBank()
+        public
+        view
+        returns(address)
+    {
+        return tokenBank;
+    }    
+    
     ///////////////////////////////////////////////////////////////////////
     // STAKING                                                           //
     ///////////////////////////////////////////////////////////////////////
     /**
-     * @notice enable/disable stoking
+     * @dev enable/disable stoking
      * @param _enabled enable/disable
     */
     function setEnabled(bool _enabled)
@@ -4243,32 +4305,20 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @notice A method for a stakeholder to create a stake.
-     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
-     * @param _value The reward per day for the given lock period
+     * @dev set the minimum acceptable amount of tokens to stake
+     * @param _minStake minimum token amount to stake
     */
-    function setReward(uint256 _lockPeriod, uint64 _value)
+    function setMinimumStake(uint256 _minStake)
         onlySupplyController
         public
     {
-        rewardTable[_lockPeriod] = _value;
+        minStake=_minStake;
     }
 
     /**
-     * @notice A method for a stakeholder to create a stake.
-     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
-     * @param _value The reward per day for the given lock period
-    */
-    function setPunishment(uint256 _lockPeriod, uint64 _value)
-        onlySupplyController
-        public
-    {
-        punishmentTable[_lockPeriod] = _value;
-    }
-
-    /**
-     * @notice A method for a stakeholder to create a stake.
+     * @dev A method for a stakeholder to create a stake.
      * @param _value The size of the stake to be created.
+     * @param _lockPeriod the period of lock for this stake
     */
     function stake(uint256 _value, uint64 _lockPeriod)
         public
@@ -4277,8 +4327,10 @@ contract StakingToken is ARDImplementationV1 {
         return _stake(_msgSender(), _value, _lockPeriod);
     }
     /**
-     * @notice A method to create a stake in behalf of stakeholder.
+     * @dev A method to create a stake in behalf of a stakeholder.
+     * @param _stakeholder address of the stake holder
      * @param _value The size of the stake to be created.
+     * @param _lockPeriod the period of lock for this stake
      */
     function stakeFor(address _stakeholder, uint256 _value, uint64 _lockPeriod)
         public
@@ -4289,28 +4341,31 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @notice A method for a stakeholder to remove a stake.
+     * @dev A method for a stakeholder to remove a stake.
+     * @param _stakedID id number of the stake
      * @param _value The size of the stake to be removed.
      */
-    function unstake(uint256 _stakedAt, uint256 _value)
+    function unstake(uint256 _stakedID, uint256 _value)
         public
     {
-        _unstake(_msgSender(),_stakedAt,_value);
+        _unstake(_msgSender(),_stakedID,_value);
     }
 
     /**
-     * @notice A method for a stakeholder to remove a stake.
+     * @dev A method for a stakeholder to remove a stake.
+     * @param _stakeholder The stakeholder to unstake his tokens.
+     * @param _stakedID The unique id of the stake
      * @param _value The size of the stake to be removed.
      */
-    function unstakeFor(address _stakeholder, uint256 _stakedAt, uint256 _value)
+    function unstakeFor(address _stakeholder, uint256 _stakedID, uint256 _value)
         public
         onlySupplyController
     {
-        _unstake(_stakeholder,_stakedAt,_value);
+        _unstake(_stakeholder,_stakedID,_value);
     }
 
     /**
-     * @notice A method to retrieve the stake for a stakeholder.
+     * @dev A method to retrieve the stake for a stakeholder.
      * @param _stakeholder The stakeholder to retrieve the stake for.
      * @return uint256 The amount of wei staked.
      */
@@ -4323,9 +4378,9 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @notice A method to retrieve the stakes for a stakeholder.
+     * @dev A method to retrieve the stakes for a stakeholder.
      * @param _stakeholder The stakeholder to retrieve the stake for.
-     * @return staking history.
+     * @return staking history of the stake holder.
      */
     function stakes(address _stakeholder)
         public
@@ -4336,7 +4391,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @notice A method to the aggregated stakes from all stakeholders.
+     * @dev A method to get the aggregated stakes from all stakeholders.
      * @return uint256 The aggregated stakes from all stakeholders.
      */
     function totalStakes()
@@ -4350,6 +4405,7 @@ contract StakingToken is ARDImplementationV1 {
 
     /**
      * @dev Returns the value in the latest stakes history, or zero if there are no stakes.
+     * @param _stakeholder The stakeholder to retrieve the latest stake amount.
      */
     function latest(address _stakeholder) internal view returns (uint256) {
         uint256 pos = stakeholders[_stakeholder].stakes.length;
@@ -4368,9 +4424,10 @@ contract StakingToken is ARDImplementationV1 {
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");
-        require(_value > 0, "zero stake");
+        require(_value >= minStake, "less than minimum stake");
         require(_value<=balanceOf(_stakeholder), "not enough balance");
-        require(rewardTable[_lockPeriod] > 0, "invalid period");
+        require(rewardTable[_lockPeriod].rates.length > 0, "invalid period");
+        require(punishmentTable[_lockPeriod].rates.length > 0, "invalid period");
 
         _transfer(_stakeholder, address(this), _value);
         //if(stakeholders[_msgSender()].totalStaked == 0) addStakeholder(_msgSender());
@@ -4381,7 +4438,15 @@ contract StakingToken is ARDImplementationV1 {
             stakeholders[_stakeholder].stakes[pos - 1].lockPeriod == _lockPeriod) {
                 stakeholders[_stakeholder].stakes[pos - 1].value = stakeholders[_stakeholder].stakes[pos - 1].value.add(_value);
         } else {
-            stakeholders[_stakeholder].stakes.push(Stake(_value, block.timestamp, _lockPeriod));
+            // uint256 _id = 1;
+            // if (pos > 0) _id = stakeholders[_stakeholder].stakes[pos - 1].id.add(1);
+            lastStakeID++;
+            stakeholders[_stakeholder].stakes.push(Stake({
+                id: lastStakeID,
+                stakedAt: block.timestamp,
+                value: _value,
+                lockPeriod: _lockPeriod
+            }));
             pos++;
         }
         stakeholders[_stakeholder].totalStaked = stakeholders[_stakeholder].totalStaked.add(_value);
@@ -4397,7 +4462,7 @@ contract StakingToken is ARDImplementationV1 {
      *
      * Returns previous value and new value.
      */
-    function _unstake(address _stakeholder, uint256 _stakedAt, uint256 _value) 
+    function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
         onlyActiveStaking
     {
@@ -4406,21 +4471,47 @@ contract StakingToken is ARDImplementationV1 {
         require(_value > 0, "zero unstake");
         require(_value <= stakeOf(_stakeholder) , "unstake more than staked");
         
-        _transfer(address(this), _stakeholder, _value);
-        //if(stakeholders[_msgSender()].totalStaked == 0) addStakeholder(_msgSender());
-
         uint256 old = stakeholders[_stakeholder].totalStaked;
         require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
         uint256 stakeIndex;
         bool found = false;
         for (stakeIndex = 0; stakeIndex < stakeholders[_stakeholder].stakes.length; stakeIndex += 1){
-            if (stakeholders[_stakeholder].stakes[stakeIndex].stakedAt == _stakedAt) {
+            if (stakeholders[_stakeholder].stakes[stakeIndex].id == _stakedID) {
                 found = true;
                 break;
             }
         }
         require(found,"stake not exist");
-        require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"stake not exist");
+        require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"not enough stake");
+        uint256 _stakedAt = stakeholders[_stakeholder].stakes[stakeIndex].stakedAt;
+        require(block.timestamp>=_stakedAt,"invalid stake");
+        // make decision about reward/punishment
+        uint256 stakingDays = (block.timestamp - _stakedAt) / (1 days);
+        if (stakingDays>=stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod) {
+            //Reward
+            uint256 _reward = _calculateReward(_stakedAt, block.timestamp, 
+                stakeholders[_stakeholder].stakes[stakeIndex].value,
+                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+            if (_reward>0) {
+                _mint(_stakeholder,_reward);
+            }
+            _transfer(address(this), _stakeholder, _value);
+        } else {
+            //Punishment
+            uint256 _punishment = _calculatePunishment(_stakedAt, block.timestamp, 
+                stakeholders[_stakeholder].stakes[stakeIndex].value,
+                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+            _punishment = _punishment<_value ? _punishment : _value;
+            //If there is punishment, send them to tokenBank
+            if (_punishment>0) {
+                _transfer(address(this), tokenBank, _punishment); 
+            }
+            uint256 withdrawal = _value.sub( _punishment );
+            if (withdrawal>0) {
+                _transfer(address(this), _stakeholder, withdrawal);
+            }
+        }
+
         // deduct unstaked amount from locked ARDs
         stakeholders[_stakeholder].stakes[stakeIndex].value = stakeholders[_stakeholder].stakes[stakeIndex].value.sub(_value);
         if (stakeholders[_stakeholder].stakes[stakeIndex].value==0) {
@@ -4446,23 +4537,6 @@ contract StakingToken is ARDImplementationV1 {
         stakeholders[_stakeholder].stakes.pop();
     }
 
-    // function _updateStakeBalance(address _user, uint256 _by, bool _increase) internal returns (uint256) {
-    //     uint256 currentStake = _totalStakedFor(_user);
-
-    //     uint256 newStake;
-    //     if (_increase) {
-    //         newStake = currentStake.add(_by);
-    //     } else {
-    //         require(_by <= balanceOf(_user), "not enough balance");
-    //         newStake = currentStake.sub(_by);
-    //     }
-    //     // add new value to account history
-    //     Checkpoints.push(stakeholders[_user].stakes, newStake);
-    //     // stakeholders[_user].stakedHistory.add(getBlockNumber64(), newStake);
-
-    //     return newStake;
-    // }
-
     function _updateTotalStaked(uint256 _by, bool _increase) internal onlyActiveStaking{
         uint256 currentStake = Checkpoints.latest(totalStakedHistory);
 
@@ -4481,10 +4555,9 @@ contract StakingToken is ARDImplementationV1 {
     // STAKEHOLDERS                                                      //
     ///////////////////////////////////////////////////////////////////////
     /**
-     * @notice A method to check if an address is a stakeholder.
+     * @dev A method to check if an address is a stakeholder.
      * @param _address The address to verify.
-     * @return bool, uint256 Whether the address is a stakeholder, 
-     * and if so its position in the stakeholders array.
+     * @return bool Whether the address is a stakeholder
      */
     function isStakeholder(address _address)
         public
@@ -4494,42 +4567,75 @@ contract StakingToken is ARDImplementationV1 {
         return (stakeholders[_address].totalStaked>0);
     }
 
-    // /**
-    //  * @dev A method to add a stakeholder.
-    //  * @param _address The stakeholder to add.
-    //  */
-    // function addStakeholder(address _address)
-    //     public
-    // {
-    //     bool _isStakeholder = isStakeholder(_address);
-    //     require(!_isStakeholder,"already exist");
-    //     StakeHolder storage sh;
-    //     stakeholders[_address] = sh;
-    //     // Checkpoints.Checkpoint[] memory cp;
-    //     // stakeholders[_address]=StakeHolder({
-    //     //     totalStaked: 0,
-    //     //     stakes: Checkpoints.History({
-    //     //         _checkpoints: cp
-    //     //     })
-    //     // });
-    // }
-
-    // /**
-    //  * @notice A method to remove a stakeholder.
-    //  * @param _address The stakeholder to remove.
-    //  */
-    // function removeStakeholder(address _address)
-    //     public
-    // {
-    //     require(isStakeholder(_address),"should be stake holder");
-    //     delete stakeholders[_address];
-    // }
-
     ///////////////////////////////////////////////////////////////////////
-    // REWARDS                                                           //
+    // REWARDS / PUNISHMENTS                                             //
     ///////////////////////////////////////////////////////////////////////
     /**
-     * @notice A method to the aggregated rewards from all stakeholders.
+     * @dev A method for a stakeholder to create a stake.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The reward per day for the given lock period
+    */
+    function setReward(uint256 _lockPeriod, uint64 _value)
+        onlySupplyController
+        public
+    {
+        require(_value>=0 && _value<=10000, "invalid rate");
+        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
+        uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        rewardTable[_lockPeriod].rates.push(Rate({
+            timestamp: block.timestamp,
+            rate: _value
+        }));
+        emit RewardRateChanged(block.timestamp,_value,oldRate);
+    }
+
+    /**
+     * @dev A method for a get the latest reward rate
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+    */
+    function rewardRate(uint256 _lockPeriod)
+        view
+        public
+        returns(uint256)
+    {
+        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
+        return (ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+    }
+
+    /**
+     * @dev A method for a stakeholder to create a stake.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The reward per day for the given lock period
+    */
+    function setPunishment(uint256 _lockPeriod, uint64 _value)
+        onlySupplyController
+        public
+    {
+        require(_value>=0 && _value<=10000, "invalid rate");
+        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
+        uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        punishmentTable[_lockPeriod].rates.push(Rate({
+            timestamp: block.timestamp,
+            rate: _value
+        }));
+        emit PunishmentRateChanged(block.timestamp,_value,oldRate);
+    }
+
+    /**
+     * @dev A method for a get the latest punishment rate
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+    */
+    function punishmentRate(uint256 _lockPeriod)
+        view
+        public
+        returns(uint256)
+    {
+        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
+        return (ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+    }
+
+    /**
+     * @dev A method to the aggregated rewards from all stakeholders.
      * @return uint256 The aggregated rewards from all stakeholders.
      */
     function rewardOf(address _stakeholder)
@@ -4541,14 +4647,14 @@ contract StakingToken is ARDImplementationV1 {
         uint256 _totalRewards = 0;
         for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
             Stake storage s = stakeholders[_stakeholder].stakes[i];
-            uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, rewardTable[s.lockPeriod]);
+            uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
             _totalRewards = _totalRewards.add(r);
         }
         return _totalRewards;
     }
 
     /** 
-     * @notice A simple method that calculates the rewards for each stakeholder.
+     * @dev A simple method that calculates the rewards for each stakeholder.
      * @param _stakeholder The stakeholder to calculate rewards for.
      */
     function calculateRewardFor(address _stakeholder, uint256 _stakedAt)
@@ -4567,61 +4673,70 @@ contract StakingToken is ARDImplementationV1 {
         }
         require(found,"stake not exist");
         Stake storage s = stakeholders[_stakeholder].stakes[stakeIndex];
-        return _calculateReward(s.stakedAt, block.timestamp, s.value, rewardTable[s.lockPeriod]);
+        return _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
     }
 
     /** 
-     * @notice A simple method that calculates the rewards for each stakeholder.
+     * @dev A simple method that calculates the rewards for each stakeholder.
      * @param _from The stakeholder to calculate rewards for.
      */
-    function _calculateReward(uint256 _from, uint256 _to, uint256 _value, uint256 _rewardPerShare)
+    function _calculateReward(uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
-        pure
+        view
         returns(uint256)
     {
-        if (_to<=_from) return 0;
-        uint256 duration = _to.sub(_from);
-        uint256 durationDays = duration.div(1 days);
-        return durationDays.mul(_value).mul(_rewardPerShare);
+        require (_to>=_from,"invalid stake time");
+        uint256 durationDays = _to.sub(_from).div(1 days);
+        if (durationDays<_lockPeriod) return 0;
+
+
+        return _calculateTotal(rewardTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
     /** 
-     * @notice A simple method that calculates the punishment for each stakeholder.
+     * @dev A simple method that calculates the punishment for each stakeholder.
      * @param _from The stakeholder to calculate rewards for.
      */
-    function _calculatePunishment(uint256 _from, uint256 _to, uint256 _value, uint256 _punishmentPerShare)
+    function _calculatePunishment(uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
-        pure
+        view
         returns(uint256)
     {
-        if (_to<=_from) return 0;
-        uint256 duration = _to.sub(_from);
-        uint256 durationDays = duration.div(1 days);
-        return durationDays.mul(_value).mul(_punishmentPerShare);
+        require (_to>=_from,"invalid stake time");
+        uint256 durationDays = _to.sub(_from).div(1 days);
+        if (durationDays>=_lockPeriod) return 0;
+
+        return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
-    // /**
-    //  * @notice A method to distribute rewards to all stakeholders.
-    //  */
-    // function distributeRewards() 
-    //     public
-    //     onlyOwner
-    // {
-    //     for (uint256 s = 0; s < stakeholders.length; s += 1){
-    //         address stakeholder = stakeholders[s];
-    //         uint256 reward = calculateReward(stakeholder);
-    //         rewards[stakeholder] = rewards[stakeholder].add(reward);
-    //     }
-    // }
-
-    // /**
-    //  * @notice A method to allow a stakeholder to withdraw his rewards.
-    //  */
-    // function withdrawReward() 
-    //     public
-    // {
-    //     uint256 reward = rewards[_msgSender()];
-    //     rewards[_msgSender()] = 0;
-    //     _mint(_msgSender(), reward);
-    // }
+    function _calculateTotal(RateHistory storage _history, uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
+        internal
+        view
+        returns(uint256)
+    {
+        //find the first rate before _from 
+        require(_history.rates.length>0,"invalid period");
+        uint256 rIndex;
+        for (rIndex = _history.rates.length-1; rIndex>0; rIndex-- ) {
+            if (rIndex<_from) break;
+        }
+        // if rate has been constant during the staking period, just calculate whole period using same rate
+        if (rIndex==_history.rates.length-1) {
+            return _value.mul(_history.rates[rIndex].rate).div(10000);  //10000 ~ 100.00
+        }
+        // otherwise we have to calculate reward per each rate change history
+        uint256 total = 0;
+        uint256 prevTimestamp = _from;
+        uint256 t;
+        for (rIndex++; rIndex<_history.rates.length && t<_to; rIndex++) {
+            t = _history.rates[rIndex].timestamp;
+            if (t>=_to) t=_to;
+            // uint256 _days = t.sub(prevTimestamp).div(1 days);
+            // uint256 r = _history.rates[i-1].rate;
+            // profit for these duration = (_value * r * _days)/(_lockPeriod)
+            total = total.add(_value.mul(_history.rates[rIndex-1].rate).mul(t.sub(prevTimestamp).div(1 days)).div(_lockPeriod));         
+            prevTimestamp = t;
+        }
+        return total;
+    }
 }
