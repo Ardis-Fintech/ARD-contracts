@@ -2,6 +2,7 @@ import { assert/*, expect*/ } from "chai";
 import { ethers, upgrades } from "hardhat";
 
 // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const TOKEN_BANK_ADDRESS = "0x83E79f1E007fF061D593055BE6c555e87ECaee83";
 
 // Test that ARD operates correctly as an ERC20Basic token.
 describe("ARD Staking functionality", function () {
@@ -12,6 +13,8 @@ describe("ARD Staking functionality", function () {
     const ARD = await ethers.getContractFactory("StakingToken");
     const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
     await instance.deployed();
+
+    await instance.setTokenBank(TOKEN_BANK_ADDRESS);
     // console.log("deployed");
 
     await instance.setMinterRole(minter.address);
@@ -63,13 +66,13 @@ describe("ARD Staking functionality", function () {
       assert.equal(totalStakedAfterNewStake, 200);
 
       // unstake 100 ARDs for user1
-      await this.token.connect(this.user1).unstake(stakes[stakes.length - 1][1], 100);
+      await this.token.connect(this.user1).unstake(1, 100);
       const userCurStaked = await this.token.stakeOf(this.user1.address);
       assert.equal(userCurStaked, 100);
 
       // check user new balance
       const userNewBalAfterUnstake = await this.token.balanceOf(this.user1.address);
-      assert.equal(userNewBalAfterUnstake, 900);
+      assert.equal(userNewBalAfterUnstake, 899);
 
       // the last stake record should be removed now
       const newStakesAfterUnstake = await this.token.stakes(this.user1.address);
