@@ -4189,7 +4189,7 @@ contract StakingToken is ARDImplementationV1 {
     Checkpoints.History internal totalStakedHistory;
 
     /**
-     * @dev We usually require to know who are all the stakeholders.
+     * @dev stakeholder address map to stakes records details.
      */
     mapping(address => StakeHolder) internal stakeholders;
 
@@ -4214,9 +4214,10 @@ contract StakingToken is ARDImplementationV1 {
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
+    // staking/unstaking events
     event Staked(address indexed from, uint256 amount, uint256 newStake, uint256 oldStake);
     event Unstaked(address indexed from, uint256 amount, uint256 newStake, uint256 oldStake);
-
+    // events for adding or changing reward/punishment rate
     event RewardRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
     event PunishmentRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
     /*****************************************************************
@@ -4243,22 +4244,6 @@ contract StakingToken is ARDImplementationV1 {
         
         // contract can mint the rewards
         setMinterRole(address(this));
-
-        // init reward table   
-        setReward(30, 100);   // 1.00%
-        setReward(60, 200);   // 2.00%
-        setReward(90, 200);   // 3.00%
-        setReward(150, 200);  // 5.00%
-        setReward(180, 200);  // 6.00%
-        setReward(360, 200);  // 12.00%
-
-        // init punishment table
-        setPunishment(30, 100);   // 1.00%
-        setPunishment(60, 200);   // 2.00%
-        setPunishment(90, 200);   // 3.00%
-        setPunishment(150, 200);  // 5.00%
-        setPunishment(180, 200);  // 6.00%
-        setPunishment(360, 200);  // 12.00%
 
         // set last stake id
         lastStakeID = 0;
@@ -4380,7 +4365,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev A method to retrieve the stakes for a stakeholder.
      * @param _stakeholder The stakeholder to retrieve the stake for.
-     * @return staking history of the stake holder.
+     * @return stakes history of the stake holder. 
      */
     function stakes(address _stakeholder)
         public
@@ -4402,6 +4387,17 @@ contract StakingToken is ARDImplementationV1 {
         return Checkpoints.latest(totalStakedHistory);
     }
 
+    /**
+     * @dev A method to get the value of total locked stakes.
+     * @return uint256 The total locked stakes.
+     */
+    function totalValueLocked()
+        public
+        view
+        returns(uint256)
+    {
+        return Checkpoints.latest(totalStakedHistory);
+    }
 
     /**
      * @dev Returns the value in the latest stakes history, or zero if there are no stakes.
@@ -4530,14 +4526,32 @@ contract StakingToken is ARDImplementationV1 {
         emit Unstaked(_stakeholder, _value, stakeholders[_stakeholder].totalStaked, old);
     }
 
-    function removeStakeRecord(address _stakeholder, uint index) internal{
+    /**
+     * @dev removes a record from stake array of a specific stake holder
+     * @param _stakeholder The stakeholder to remove stake from.
+     * @param index the stake index (uinque ID)
+     * Returns previous value and new value.
+     */
+    function removeStakeRecord(address _stakeholder, uint index) 
+        internal 
+        onlyActiveStaking
+    {
         for(uint i = index; i < stakeholders[_stakeholder].stakes.length-1; i++){
             stakeholders[_stakeholder].stakes[i] = stakeholders[_stakeholder].stakes[i+1];      
         }
         stakeholders[_stakeholder].stakes.pop();
     }
 
-    function _updateTotalStaked(uint256 _by, bool _increase) internal onlyActiveStaking{
+    /**
+     * @dev update the total stakes history
+     * @param _by The amount of stake to be added or deducted from history
+     * @param _increase true means new staked is added to history and false means it's unstake and stake should be deducted from history
+     * Returns previous value and new value.
+     */
+    function _updateTotalStaked(uint256 _by, bool _increase) 
+        internal 
+        onlyActiveStaking
+    {
         uint256 currentStake = Checkpoints.latest(totalStakedHistory);
 
         uint256 newStake;
@@ -4557,7 +4571,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev A method to check if an address is a stakeholder.
      * @param _address The address to verify.
-     * @return bool Whether the address is a stakeholder
+     * @return bool Whether the address is a stakeholder or not
      */
     function isStakeholder(address _address)
         public
@@ -4571,9 +4585,9 @@ contract StakingToken is ARDImplementationV1 {
     // REWARDS / PUNISHMENTS                                             //
     ///////////////////////////////////////////////////////////////////////
     /**
-     * @dev A method for a stakeholder to create a stake.
+     * @dev set reward rate in percentage (2 decimal zeros) for a specific lock period.
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
-     * @param _value The reward per day for the given lock period
+     * @param _value The reward per entire period for the given lock period
     */
     function setReward(uint256 _lockPeriod, uint64 _value)
         onlySupplyController
@@ -4582,6 +4596,7 @@ contract StakingToken is ARDImplementationV1 {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "duplicate rate");
         rewardTable[_lockPeriod].rates.push(Rate({
             timestamp: block.timestamp,
             rate: _value
@@ -4590,7 +4605,27 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for a get the latest reward rate
+     * @dev A method for adjust rewards table by single call. Should be called after first deployment.
+     * this method merges the new table with current reward table (if it is existed)
+     * @param _rtbl reward table ex:
+     * const rewards = [
+     *       [30,  200],
+     *       [60,  300],
+     *       [180, 500],
+     *   ];
+    */
+    function setRewardTable(uint64[][] memory _rtbl)
+        onlySupplyController
+        public
+    {
+        for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
+            setReward(_rtbl[_rIndex][0], _rtbl[_rIndex][1]);
+        }
+    }
+
+    /**
+     * @dev A method for retrieve the latest reward rate for a give lock period
+     * if there is no rate for given lock period, it throws error
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
     function rewardRate(uint256 _lockPeriod)
@@ -4598,14 +4633,14 @@ contract StakingToken is ARDImplementationV1 {
         public
         returns(uint256)
     {
-        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
-        return (ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+        require(rewardTable[_lockPeriod].rates.length>0,"no rate");
+        return _lastRate(rewardTable[_lockPeriod]);
     }
 
     /**
-     * @dev A method for a stakeholder to create a stake.
+     * @dev set punishment rate in percentage (2 decimal zeros) for a specific lock period.
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
-     * @param _value The reward per day for the given lock period
+     * @param _value The punishment per entire period for the given lock period
     */
     function setPunishment(uint256 _lockPeriod, uint64 _value)
         onlySupplyController
@@ -4614,6 +4649,7 @@ contract StakingToken is ARDImplementationV1 {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "same as it is");
         punishmentTable[_lockPeriod].rates.push(Rate({
             timestamp: block.timestamp,
             rate: _value
@@ -4622,7 +4658,27 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for a get the latest punishment rate
+     * @dev A method for adjust punishment table by single call.
+     * this method merges the new table with current punishment table (if it is existed)
+     * @param _ptbl punishment table ex:
+     * const punishments = [
+     *       [30,  200],
+     *       [60,  300],
+     *       [180, 500],
+     *   ];
+    */
+    function setPunishmentTable(uint64[][] memory _ptbl)
+        onlySupplyController
+        public
+    {
+        for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {
+            setPunishment(_ptbl[_pIndex][0], _ptbl[_pIndex][1]);
+        }
+    }
+
+    /**
+     * @dev A method to get the latest punishment rate
+     * if there is no rate for given lock period, it throws error
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
     function punishmentRate(uint256 _lockPeriod)
@@ -4630,13 +4686,14 @@ contract StakingToken is ARDImplementationV1 {
         public
         returns(uint256)
     {
-        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
-        return (ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+        require(punishmentTable[_lockPeriod].rates.length>0,"no rate");
+        return _lastRate(punishmentTable[_lockPeriod]);
     }
 
     /**
      * @dev A method to the aggregated rewards from all stakeholders.
-     * @return uint256 The aggregated rewards from all stakeholders.
+     * @param _stakeholder The stakeholder to get aggregated reward balance.
+     * @return uint256 The aggregated rewards of the stakeholder.
      */
     function rewardOf(address _stakeholder)
         public
@@ -4655,9 +4712,11 @@ contract StakingToken is ARDImplementationV1 {
 
     /** 
      * @dev A simple method that calculates the rewards for each stakeholder.
+     * The rewards only is available after stakeholder unstakes the ARDs.
      * @param _stakeholder The stakeholder to calculate rewards for.
+     * @return uint256 return the reward for the stake with specific ID.
      */
-    function calculateRewardFor(address _stakeholder, uint256 _stakedAt)
+    function calculateRewardFor(address _stakeholder, uint256 _stakedID)
         public
         view
         returns(uint256)
@@ -4666,7 +4725,7 @@ contract StakingToken is ARDImplementationV1 {
         uint256 stakeIndex;
         bool found = false;
         for (stakeIndex = 0; stakeIndex < stakeholders[_stakeholder].stakes.length; stakeIndex += 1){
-            if (stakeholders[_stakeholder].stakes[stakeIndex].stakedAt == _stakedAt) {
+            if (stakeholders[_stakeholder].stakes[stakeIndex].id == _stakedID) {
                 found = true;
                 break;
             }
@@ -4677,8 +4736,12 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /** 
-     * @dev A simple method that calculates the rewards for each stakeholder.
-     * @param _from The stakeholder to calculate rewards for.
+     * @dev A simple method that calculates the rewards for stakeholder from a given priod which is set by _from and _to.
+     * @param _from The start date of the period.
+     * @param _to The end date of the period.
+     * @param _value Amount of staking.
+     * @param _lockPeriod lock period for this staking.
+     * @return uint256 total reward for given period
      */
     function _calculateReward(uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
@@ -4686,16 +4749,19 @@ contract StakingToken is ARDImplementationV1 {
         returns(uint256)
     {
         require (_to>=_from,"invalid stake time");
-        uint256 durationDays = _to.sub(_from).div(1 days);
+        uint256 durationDays = _duration(_from,_to,_lockPeriod);
         if (durationDays<_lockPeriod) return 0;
-
 
         return _calculateTotal(rewardTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
     /** 
-     * @dev A simple method that calculates the punishment for each stakeholder.
-     * @param _from The stakeholder to calculate rewards for.
+     * @dev A simple method that calculates the punishment for stakeholder from a given priod which is set by _from and _to.
+     * @param _from The start date of the period.
+     * @param _to The end date of the period.
+     * @param _value Amount of staking.
+     * @param _lockPeriod lock period for this staking.
+     * @return uint256 total punishment for given period
      */
     function _calculatePunishment(uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
@@ -4709,34 +4775,108 @@ contract StakingToken is ARDImplementationV1 {
         return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
+    /** 
+     * @dev calculates the total amount of reward/punishment for a given priod which is set by _from and _to. This method calculates 
+     * based on the history of rate changes. So if in this period, three times rate have had changed, this function calculates for each
+     * of the rates separately and returns total 
+     * @param _history The history of rates
+     * @param _from The start date of the period.
+     * @param _to The end date of the period.
+     * @param _value Amount of staking.
+     * @param _lockPeriod lock period for this staking.
+     * @return uint256 total reward/punishment for given period considering the rate changes
+     */
     function _calculateTotal(RateHistory storage _history, uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
         view
         returns(uint256)
     {
         //find the first rate before _from 
+
         require(_history.rates.length>0,"invalid period");
         uint256 rIndex;
         for (rIndex = _history.rates.length-1; rIndex>0; rIndex-- ) {
-            if (rIndex<_from) break;
+            if (_history.rates[rIndex].timestamp<=_from) break;
         }
+        require(_history.rates[rIndex].timestamp<=_from, "lack of history rates");
         // if rate has been constant during the staking period, just calculate whole period using same rate
         if (rIndex==_history.rates.length-1) {
             return _value.mul(_history.rates[rIndex].rate).div(10000);  //10000 ~ 100.00
         }
-        // otherwise we have to calculate reward per each rate change history
+        // otherwise we have to calculate reward per each rate change record from history
+
+        /*                                       [1.5%]             [5%]               [2%]
+           Rate History:    (deployed)o(R0)----------------o(R1)-------------o(R2)-----------------o(R3)--------------------
+           Given Period:                   o(from)--------------------------------------o(to)
+           
+           Calculations:     ( 5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
+        */
         uint256 total = 0;
+        uint256 totalDuration = 0;
         uint256 prevTimestamp = _from;
-        uint256 t;
-        for (rIndex++; rIndex<_history.rates.length && t<_to; rIndex++) {
-            t = _history.rates[rIndex].timestamp;
-            if (t>=_to) t=_to;
-            // uint256 _days = t.sub(prevTimestamp).div(1 days);
-            // uint256 r = _history.rates[i-1].rate;
-            // profit for these duration = (_value * r * _days)/(_lockPeriod)
-            total = total.add(_value.mul(_history.rates[rIndex-1].rate).mul(t.sub(prevTimestamp).div(1 days)).div(_lockPeriod));         
-            prevTimestamp = t;
+        uint256 diff = 0;
+        uint256 maxTotalDuration = _duration(_from,_to, _lockPeriod);
+        for (rIndex++; rIndex<=_history.rates.length && totalDuration<maxTotalDuration; rIndex++) {
+            
+            if (rIndex<_history.rates.length){
+                diff = _duration(prevTimestamp, _history.rates[rIndex].timestamp, 0);
+                prevTimestamp = _history.rates[rIndex].timestamp;
+            }else {
+                diff = _duration(prevTimestamp, _to, 0);
+                prevTimestamp = _to;
+            }
+
+            totalDuration = totalDuration.add(diff);
+            if (totalDuration>maxTotalDuration) {
+                diff = diff.sub(totalDuration.sub(maxTotalDuration));
+                totalDuration = maxTotalDuration;
+            }
+            total = total.add(_history.rates[rIndex-1].rate * diff);
         }
-        return total;
+        return _value.mul(total).div(_lockPeriod.mul(10000));
     }
+
+    /**
+    * @dev this function calculates the number of days between t1 and t2
+    * @param t1 the period start
+    * @param t2 the period end
+    * @param maxDuration max duration. if the number of days is more than max, it returns max 
+    * @return uint256 number of days
+     */
+    function _duration(uint256 t1, uint256 t2, uint256 maxDuration)
+        internal
+        pure
+        returns(uint256)
+    {
+        uint256 diffDays = t2.sub(t1).div(1 days);
+        if (maxDuration==0) return diffDays;
+        return Math.min(diffDays,maxDuration);
+    }
+
+    /**
+    * @dev this function retriev last rate of a given rate history
+    * @param _history the history of rate changes
+    * @return uint256 the last rate which is current rate
+     */
+    function _lastRate(RateHistory storage _history)
+        internal
+        view
+        returns(uint256)
+    {
+        return _history.rates[_history.rates.length-1].rate;
+    }
+
+    /**
+    * @dev this function retriev last rate timestamp from a given rate history
+    * @param _history the history of rate changes
+    * @return uint256 the last rate timestamp which is the timestamp of current rate benn set
+     */
+    function _lastTimestamp(RateHistory storage _history)
+        internal
+        view
+        returns(uint256)
+    {
+        return _history.rates[_history.rates.length-1].timestamp;
+    }
+
 }

@@ -682,7 +682,14 @@ contract StakingToken is ARDImplementationV1 {
         if (rIndex==_history.rates.length-1) {
             return _value.mul(_history.rates[rIndex].rate).div(10000);  //10000 ~ 100.00
         }
-        // otherwise we have to calculate reward per each rate change history
+        // otherwise we have to calculate reward per each rate change record from history
+
+        /*                                       [1.5%]             [5%]               [2%]
+           Rate History:    (deployed)o(R0)----------------o(R1)-------------o(R2)-----------------o(R3)--------------------
+           Given Period:                   o(from)--------------------------------------o(to)
+           
+           Calculations:     ( 5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
+        */
         uint256 total = 0;
         uint256 totalDuration = 0;
         uint256 prevTimestamp = _from;
@@ -707,14 +714,6 @@ contract StakingToken is ARDImplementationV1 {
         }
         return _value.mul(total).div(_lockPeriod.mul(10000));
     }
-
-    // function _rewardForSingleRate(uint256 rate, uint256 _days, uint256 _value, uint256 _lockPeriod)
-    //     internal
-    //     pure
-    //     returns(uint256)
-    // {
-    //     return (_value * rate * _days)/(_lockPeriod * 10000);
-    // }
 
     /**
     * @dev this function calculates the number of days between t1 and t2
