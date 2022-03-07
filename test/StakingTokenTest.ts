@@ -406,4 +406,59 @@ describe("ARD Staking protocol", function () {
       assert.equal(enabled, true);
     });
   });
+
+  // test if stop, no one can do staking
+  describe("check protocol start/stop functions", function () {
+    it("staking/unstaking are not allowed if protocol is stopped ", async function () {
+      await this.token.connect(this.user1).stake(10000000000, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 90000000000);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 10000000000);
+      // check total staked in contract
+      const totalStaked = await this.token.totalStakes();
+      assert.equal(totalStaked, 10000000000);
+
+      // stop protocol
+      await this.token.enableStakingProtocol(false);
+
+      // stake another 100 ARDs will fails because protocol is stopped
+      await expect(this.token.connect(this.user1).stake(10000000000, 60)).to.be.reverted;
+
+      // still must have 1 record
+      const stakes = await this.token.stakes(this.user1.address);
+      assert.equal(stakes.length, 1);
+
+      // check total stake of the user which is still same as first staking
+      const userStaked2 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked2, 10000000000);
+    });
+
+    it("unstake is not allowed if early unstaking is stopped by owner or supply controller ", async function () {
+      await this.token.connect(this.user1).stake(10000000000, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 90000000000);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 10000000000);
+      // check total staked in contract
+      const totalStaked = await this.token.totalStakes();
+      assert.equal(totalStaked, 10000000000);
+
+      // stop unstaking
+      await this.token.enableUnstaking(false);
+
+      // unstake 100 ARDs for user1 would fail
+      await expect(this.token.connect(this.user1).unstake(1, 10000000000)).to.be.reverted;
+      const userCurStaked = await this.token.stakeOf(this.user1.address);
+      assert.equal(userCurStaked, 10000000000);
+
+      // check user new balance must be still same as before unstake tx
+      const userNewBalAfterUnstake = await this.token.balanceOf(this.user1.address);
+      assert.equal(userNewBalAfterUnstake, 90000000000);
+    });
+  });
 });
