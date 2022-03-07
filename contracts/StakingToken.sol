@@ -128,7 +128,7 @@ contract StakingToken is ARDImplementationV1 {
         lastStakeID = 0;
 
         //enable staking by default
-        setEnabled(true);
+        setStakingEnabled(true);
     }
 
     /**
@@ -161,11 +161,23 @@ contract StakingToken is ARDImplementationV1 {
      * @dev enable/disable stoking
      * @param _enabled enable/disable
     */
-    function setEnabled(bool _enabled)
+    function setStakingEnabled(bool _enabled)
         onlySupplyController
         public
     {
         stakingEnabled=_enabled;
+    }
+
+    /**
+     * @dev enable/disable stoking
+     * @return bool wheter staking protocol is enabled or not
+    */
+    function isStakingEnabled()
+        public
+        view
+        returns(bool)
+    {
+        return stakingEnabled;
     }
 
     /**

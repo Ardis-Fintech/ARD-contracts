@@ -120,6 +120,28 @@ describe("ARD Staking protocol", function () {
       assert.equal(totalStakedAfterNewUnstake, 10000000000);
     });
 
+    it("can't stake if the staking protocol is disabled", async function () {
+
+      await this.token.connect(this.user1).stake(10000000000, 30);
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 90000000000);
+
+      // disable staking
+      await this.token.setStakingEnabled(false);
+
+      // check the staking protocol enable
+      const isEnabled = await this.token.isStakingEnabled();
+      assert.equal(isEnabled, false);
+
+      // users can't use staking any more
+      await expect(this.token.connect(this.user1).stake(10000000000, 30)).to.be.reverted;
+
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 10000000000);
+    });
+
     it("test rewards after completing lock period", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
       // check user balance
@@ -209,6 +231,34 @@ describe("ARD Staking protocol", function () {
       // await this.token.connect(this.user1).unstake(1, 100);
       // const userCurStaked = await this.token.stakeOf(this.user1.address);
       // assert.equal(userCurStaked, 0);
+    });
+
+    it("test punishment after changing rates", async function () {
+      await this.token.connect(this.user1).stake(10000000000, 30);
+      // check user balance
+      let userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 90000000000);
+      // check staked amount
+      const userStaked1 = await this.token.stakeOf(this.user1.address);
+      assert.equal(userStaked1, 10000000000);
+
+      // move timestamp to 10 days later
+      await timeTravel(10);
+
+      // set new reward rate after 10 days of staking
+      await this.token.setPunishment(30, 200);
+
+      // move timestamp again to 10 days later
+      await timeTravel(10);
+
+      // unstake all staked ARDs to check the punishment
+      await this.token.connect(this.user1).unstake(1, 10000000000);
+      const userCurStaked = await this.token.stakeOf(this.user1.address);
+      assert.equal(userCurStaked, 0);
+
+      // check user balance
+      userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 99900000000);
     });
 
     it("change rate after staking period shouldn't affect reward", async function () {
