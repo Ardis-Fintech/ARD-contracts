@@ -48,10 +48,15 @@ contract StakingToken is ARDImplementationV1 {
     address internal tokenBank;
 
     /**
-     * @dev start/stop staking
+     * @dev start/stop staking protocol
      */
     bool internal stakingEnabled;
     
+    /**
+     * @dev start/stop staking protocol
+     */
+    bool internal unstakingAllowed;
+
     /**
      * @dev The minimum amount of tokens to stake
      */
@@ -90,6 +95,10 @@ contract StakingToken is ARDImplementationV1 {
         _;
     }
 
+    modifier onlyUnstakingAllowed() {
+        require(unstakingAllowed, "early unstaking not allowed");
+        _;
+    }
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
@@ -128,7 +137,10 @@ contract StakingToken is ARDImplementationV1 {
         lastStakeID = 0;
 
         //enable staking by default
-        setStakingEnabled(true);
+        enableStakingProtocol(true);
+
+        //enable unstaking
+        enableUnstaking(true);
     }
 
     /**
@@ -161,7 +173,7 @@ contract StakingToken is ARDImplementationV1 {
      * @dev enable/disable stoking
      * @param _enabled enable/disable
     */
-    function setStakingEnabled(bool _enabled)
+    function enableStakingProtocol(bool _enabled)
         onlySupplyController
         public
     {
@@ -172,7 +184,7 @@ contract StakingToken is ARDImplementationV1 {
      * @dev enable/disable stoking
      * @return bool wheter staking protocol is enabled or not
     */
-    function isStakingEnabled()
+    function isStakingProtocolEnabled()
         public
         view
         returns(bool)
@@ -181,12 +193,35 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
+     * @dev enable/disable early unstaking
+     * @param _enabled enable/disable
+    */
+    function enableUnstaking(bool _enabled)
+        public
+        onlySupplyController
+    {
+        unstakingAllowed=_enabled;
+    }
+
+    /**
+     * @dev check whether unstoking is allowed
+     * @return bool wheter unstaking protocol is allowed or not
+    */
+    function isUnstakingAllowed()
+        public
+        view
+        returns(bool)
+    {
+        return unstakingAllowed;
+    }
+
+    /**
      * @dev set the minimum acceptable amount of tokens to stake
      * @param _minStake minimum token amount to stake
     */
     function setMinimumStake(uint256 _minStake)
-        onlySupplyController
         public
+        onlySupplyController
     {
         minStake=_minStake;
     }
@@ -364,6 +399,7 @@ contract StakingToken is ARDImplementationV1 {
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
         onlyActiveStaking
+        onlyUnstakingAllowed
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");

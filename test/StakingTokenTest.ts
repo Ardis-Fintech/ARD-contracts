@@ -128,10 +128,10 @@ describe("ARD Staking protocol", function () {
       assert.equal(userBal, 90000000000);
 
       // disable staking
-      await this.token.setStakingEnabled(false);
+      await this.token.enableStakingProtocol(false);
 
       // check the staking protocol enable
-      const isEnabled = await this.token.isStakingEnabled();
+      const isEnabled = await this.token.isStakingProtocolEnabled();
       assert.equal(isEnabled, false);
 
       // users can't use staking any more
@@ -389,20 +389,20 @@ describe("ARD Staking protocol", function () {
 
     it("only supply controller able to stop/resume staking protocol", async function () {
       // check if supply controller can change the min stake
-      await this.token.connect(this.supplyController).setStakingEnabled(false);
-      let enabled = await this.token.isStakingEnabled();
+      await this.token.connect(this.supplyController).enableStakingProtocol(false);
+      let enabled = await this.token.isStakingProtocolEnabled();
       assert.equal(enabled, false);
 
       // other roles won't be able to set min stake
-      await expect(this.token.connect(this.user1).setStakingEnabled(true)).to.be.reverted;
+      await expect(this.token.connect(this.user1).enableStakingProtocol(true)).to.be.reverted;
 
       // staking still should be disabled
-      enabled = await this.token.isStakingEnabled();
+      enabled = await this.token.isStakingProtocolEnabled();
       assert.equal(enabled, false);
 
       // enable it again
-      await this.token.connect(this.supplyController).setStakingEnabled(true);
-      enabled = await this.token.isStakingEnabled();
+      await this.token.connect(this.supplyController).enableStakingProtocol(true);
+      enabled = await this.token.isStakingProtocolEnabled();
       assert.equal(enabled, true);
     });
   });
