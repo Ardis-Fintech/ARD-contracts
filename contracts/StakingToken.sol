@@ -192,6 +192,18 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
+     * @dev get the minimum acceptable amount of tokens to stake
+     * @return uint256 minimum token amount to stake
+    */
+    function minimumAllowedStake()
+        public
+        view 
+        returns (uint256)
+    {
+        return minStake;
+    }
+
+    /**
      * @dev A method for a stakeholder to create a stake.
      * @param _value The size of the stake to be created.
      * @param _lockPeriod the period of lock for this stake

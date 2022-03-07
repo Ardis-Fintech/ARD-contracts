@@ -351,4 +351,59 @@ describe("ARD Staking protocol", function () {
       assert.equal(user1Reward, 300000000);
     });
   });
+
+  describe("staking permissions", function () {
+    it("only supply controller able to set rewards and punishments", async function () {
+      // check if supply controller can change the reward rate
+      await this.token.connect(this.supplyController).setReward(30, 850);
+      const r = await this.token.connect(this.supplyController).rewardRate(30);
+      assert.equal(r, 850);
+
+      // check if supply controller can change the punishment rate
+      await this.token.connect(this.supplyController).setPunishment(30, 850);
+      const p = await this.token.punishmentRate(30);
+      assert.equal(p, 850);
+
+      // other roles won't be able to set rewards
+      await expect(this.token.connect(this.user1).setReward(30, 200)).to.be.reverted;
+
+      // other roles won't be able to set punishments
+      await expect(this.token.connect(this.user1).setPunishment(30, 200)).to.be.reverted;
+
+      // other roles won't be able to set reward table
+      await expect(this.token.connect(this.user1).setRewardTable([[30, 200]])).to.be.reverted;
+
+      // other roles won't be able to set punishment table
+      await expect(this.token.connect(this.user1).setPunishmentTable([[30, 200]])).to.be.reverted;
+    });
+
+    it("only supply controller able to set min stake", async function () {
+      // check if supply controller can change the min stake
+      await this.token.connect(this.supplyController).setMinimumStake(850);
+      const minStake = await this.token.minimumAllowedStake();
+      assert.equal(minStake, 850);
+
+      // other roles won't be able to set min stake
+      await expect(this.token.connect(this.user1).setMinimumStake(123)).to.be.reverted;
+    });
+
+    it("only supply controller able to stop/resume staking protocol", async function () {
+      // check if supply controller can change the min stake
+      await this.token.connect(this.supplyController).setStakingEnabled(false);
+      let enabled = await this.token.isStakingEnabled();
+      assert.equal(enabled, false);
+
+      // other roles won't be able to set min stake
+      await expect(this.token.connect(this.user1).setStakingEnabled(true)).to.be.reverted;
+
+      // staking still should be disabled
+      enabled = await this.token.isStakingEnabled();
+      assert.equal(enabled, false);
+
+      // enable it again
+      await this.token.connect(this.supplyController).setStakingEnabled(true);
+      enabled = await this.token.isStakingEnabled();
+      assert.equal(enabled, true);
+    });
+  });
 });
