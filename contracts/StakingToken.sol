@@ -68,7 +68,7 @@ contract StakingToken is ARDImplementationV1 {
     Checkpoints.History internal totalStakedHistory;
 
     /**
-     * @dev We usually require to know who are all the stakeholders.
+     * @dev stakeholder address map to stakes records details.
      */
     mapping(address => StakeHolder) internal stakeholders;
 
@@ -122,22 +122,6 @@ contract StakingToken is ARDImplementationV1 {
         
         // contract can mint the rewards
         setMinterRole(address(this));
-
-        // init reward table   
-        setReward(30, 100);   // 1.00%
-        setReward(60, 200);   // 2.00%
-        setReward(90, 200);   // 3.00%
-        setReward(150, 200);  // 5.00%
-        setReward(180, 200);  // 6.00%
-        setReward(360, 200);  // 12.00%
-
-        // init punishment table
-        setPunishment(30, 100);   // 1.00%
-        setPunishment(60, 200);   // 2.00%
-        setPunishment(90, 200);   // 3.00%
-        setPunishment(150, 200);  // 5.00%
-        setPunishment(180, 200);  // 6.00%
-        setPunishment(360, 200);  // 12.00%
 
         // set last stake id
         lastStakeID = 0;
@@ -281,6 +265,17 @@ contract StakingToken is ARDImplementationV1 {
         return Checkpoints.latest(totalStakedHistory);
     }
 
+    /**
+     * @dev A method to get the value of total locked stakes.
+     * @return uint256 The total locked stakes.
+     */
+    function totalValueLocked()
+        public
+        view
+        returns(uint256)
+    {
+        return Checkpoints.latest(totalStakedHistory);
+    }
 
     /**
      * @dev Returns the value in the latest stakes history, or zero if there are no stakes.
@@ -461,12 +456,30 @@ contract StakingToken is ARDImplementationV1 {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
-        require(_value!=oldRate, "same as it is");
+        require(_value!=oldRate, "duplicate rate");
         rewardTable[_lockPeriod].rates.push(Rate({
             timestamp: block.timestamp,
             rate: _value
         }));
         emit RewardRateChanged(block.timestamp,_value,oldRate);
+    }
+
+    /**
+     * @dev A method for adjust rewards table by single call.
+     * @param _rtbl reward table ex:
+     * const rewards = [
+     *       [30,  200],
+     *       [60,  300],
+     *       [180, 500],
+     *   ];
+    */
+    function setRewardTable(uint64[][] memory _rtbl)
+        onlySupplyController
+        public
+    {
+        for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
+            setReward(_rtbl[_rIndex][0], _rtbl[_rIndex][1]);
+        }
     }
 
     /**
@@ -478,8 +491,8 @@ contract StakingToken is ARDImplementationV1 {
         public
         returns(uint256)
     {
-        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
-        return (ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+        require(rewardTable[_lockPeriod].rates.length>0,"no rate");
+        return _lastRate(rewardTable[_lockPeriod]);
     }
 
     /**
@@ -494,11 +507,30 @@ contract StakingToken is ARDImplementationV1 {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "same as it is");
         punishmentTable[_lockPeriod].rates.push(Rate({
             timestamp: block.timestamp,
             rate: _value
         }));
         emit PunishmentRateChanged(block.timestamp,_value,oldRate);
+    }
+
+    /**
+     * @dev A method for adjust punishment table by single call.
+     * @param _ptbl punishment table ex:
+     * const punishments = [
+     *       [30,  200],
+     *       [60,  300],
+     *       [180, 500],
+     *   ];
+    */
+    function setPunishmentTable(uint64[][] memory _ptbl)
+        onlySupplyController
+        public
+    {
+        for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {
+            setPunishment(_ptbl[_pIndex][0], _ptbl[_pIndex][1]);
+        }
     }
 
     /**
@@ -510,8 +542,8 @@ contract StakingToken is ARDImplementationV1 {
         public
         returns(uint256)
     {
-        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
-        return (ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0);
+        require(punishmentTable[_lockPeriod].rates.length>0,"no rate");
+        return _lastRate(punishmentTable[_lockPeriod]);
     }
 
     /**

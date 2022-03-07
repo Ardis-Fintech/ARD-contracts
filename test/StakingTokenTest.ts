@@ -37,6 +37,28 @@ describe("ARD Staking protocol", function () {
     await instance.setSupplyControllerRole(supplyController.address);
     // console.log("roles assigned");
 
+    // init reward table 
+    const _rewards = [
+      [30, 100],   // 1.00%
+      [60, 200],   // 2.00%
+      [90, 200],   // 3.00%
+      [150, 200],  // 5.00%
+      [180, 200],  // 6.00%
+      [360, 200]   // 12.00%
+    ];
+    await instance.setRewardTable(_rewards);
+
+    // init punishment table 
+    const _punishments = [
+      [30, 100],   // 1.00%
+      [60, 200],   // 2.00%
+      [90, 200],   // 3.00%
+      [150, 200],  // 5.00%
+      [180, 200],  // 6.00%
+      [360, 200]   // 12.00%
+    ];
+    await instance.setPunishmentTable(_punishments);
+
     // mint 1000 ARDs for user1
     await instance.connect(minter).mint(user1.address, 100000000000);
 
@@ -108,21 +130,7 @@ describe("ARD Staking protocol", function () {
       assert.equal(userStaked1, 10000000000);
 
       // let move timestamp and do time travel
-      const timeTravelInDays = 30 * 24 * 60 * 60;
-
-      const blockNumBefore = await ethers.provider.getBlockNumber();
-      const blockBefore = await ethers.provider.getBlock(blockNumBefore);
-      const timestampBefore = blockBefore.timestamp;
-
-      await ethers.provider.send('evm_increaseTime', [timeTravelInDays]);
-      await ethers.provider.send('evm_mine', []);
-
-      const blockNumAfter = await ethers.provider.getBlockNumber();
-      const blockAfter = await ethers.provider.getBlock(blockNumAfter);
-      const timestampAfter = blockAfter.timestamp;
-
-      expect(blockNumAfter).to.be.equal(blockNumBefore + 1);
-      expect(timestampAfter).to.be.equal(timestampBefore + timeTravelInDays);
+      await timeTravel(30);
 
       // await network.provider.send("evm_setNextBlockTimestamp", [1625097600])
       // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
@@ -147,21 +155,7 @@ describe("ARD Staking protocol", function () {
       assert.equal(userStaked1, 10000000000);
 
       // let move timestamp and do time travel
-      const timeTravelInDays = 29 * 24 * 60 * 60;
-
-      const blockNumBefore = await ethers.provider.getBlockNumber();
-      const blockBefore = await ethers.provider.getBlock(blockNumBefore);
-      const timestampBefore = blockBefore.timestamp;
-
-      await ethers.provider.send('evm_increaseTime', [timeTravelInDays]);
-      await ethers.provider.send('evm_mine', []);
-
-      const blockNumAfter = await ethers.provider.getBlockNumber();
-      const blockAfter = await ethers.provider.getBlock(blockNumAfter);
-      const timestampAfter = blockAfter.timestamp;
-
-      expect(blockNumAfter).to.be.equal(blockNumBefore + 1);
-      expect(timestampAfter).to.be.equal(timestampBefore + timeTravelInDays);
+      await timeTravel(29);
 
       // await network.provider.send("evm_setNextBlockTimestamp", [1625097600])
       // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
