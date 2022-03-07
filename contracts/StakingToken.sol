@@ -461,6 +461,7 @@ contract StakingToken is ARDImplementationV1 {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "same as it is");
         rewardTable[_lockPeriod].rates.push(Rate({
             timestamp: block.timestamp,
             rate: _value
@@ -565,9 +566,8 @@ contract StakingToken is ARDImplementationV1 {
         returns(uint256)
     {
         require (_to>=_from,"invalid stake time");
-        uint256 durationDays = _to.sub(_from).div(1 days);
+        uint256 durationDays = _duration(_from,_to,_lockPeriod);
         if (durationDays<_lockPeriod) return 0;
-
 
         return _calculateTotal(rewardTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
@@ -588,34 +588,82 @@ contract StakingToken is ARDImplementationV1 {
         return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
+
     function _calculateTotal(RateHistory storage _history, uint256 _from, uint256 _to, uint256 _value, uint256 _lockPeriod)
         internal
         view
         returns(uint256)
     {
         //find the first rate before _from 
+
         require(_history.rates.length>0,"invalid period");
         uint256 rIndex;
         for (rIndex = _history.rates.length-1; rIndex>0; rIndex-- ) {
-            if (rIndex<_from) break;
+            if (_history.rates[rIndex].timestamp<=_from) break;
         }
+        require(_history.rates[rIndex].timestamp<=_from, "lack of history rates");
         // if rate has been constant during the staking period, just calculate whole period using same rate
         if (rIndex==_history.rates.length-1) {
             return _value.mul(_history.rates[rIndex].rate).div(10000);  //10000 ~ 100.00
         }
         // otherwise we have to calculate reward per each rate change history
         uint256 total = 0;
+        uint256 totalDuration = 0;
         uint256 prevTimestamp = _from;
-        uint256 t;
-        for (rIndex++; rIndex<_history.rates.length && t<_to; rIndex++) {
-            t = _history.rates[rIndex].timestamp;
-            if (t>=_to) t=_to;
-            // uint256 _days = t.sub(prevTimestamp).div(1 days);
-            // uint256 r = _history.rates[i-1].rate;
-            // profit for these duration = (_value * r * _days)/(_lockPeriod)
-            total = total.add(_value.mul(_history.rates[rIndex-1].rate).mul(t.sub(prevTimestamp).div(1 days)).div(_lockPeriod));         
-            prevTimestamp = t;
+        uint256 diff = 0;
+        uint256 maxTotalDuration = _duration(_from,_to, _lockPeriod);
+        for (rIndex++; rIndex<=_history.rates.length && totalDuration<maxTotalDuration; rIndex++) {
+            
+            if (rIndex<_history.rates.length){
+                diff = _duration(prevTimestamp, _history.rates[rIndex].timestamp, 0);
+                prevTimestamp = _history.rates[rIndex].timestamp;
+            }else {
+                diff = _duration(prevTimestamp, _to, 0);
+                prevTimestamp = _to;
+            }
+
+            totalDuration = totalDuration.add(diff);
+            if (totalDuration>maxTotalDuration) {
+                diff = diff.sub(totalDuration.sub(maxTotalDuration));
+                totalDuration = maxTotalDuration;
+            }
+            total = total.add(_history.rates[rIndex-1].rate * diff);
         }
-        return total;
+        return _value.mul(total).div(_lockPeriod.mul(10000));
     }
+
+    // function _rewardForSingleRate(uint256 rate, uint256 _days, uint256 _value, uint256 _lockPeriod)
+    //     internal
+    //     pure
+    //     returns(uint256)
+    // {
+    //     return (_value * rate * _days)/(_lockPeriod * 10000);
+    // }
+
+    function _duration(uint256 t1, uint256 t2, uint256 maxDuration)
+        internal
+        pure
+        returns(uint256)
+    {
+        uint256 diffDays = t2.sub(t1).div(1 days);
+        if (maxDuration==0) return diffDays;
+        return Math.min(diffDays,maxDuration);
+    }
+
+    function _lastRate(RateHistory storage _history)
+        internal
+        view
+        returns(uint256)
+    {
+        return _history.rates[_history.rates.length-1].rate;
+    }
+
+    function _lastTimestamp(RateHistory storage _history)
+        internal
+        view
+        returns(uint256)
+    {
+        return _history.rates[_history.rates.length-1].timestamp;
+    }
+
 }
