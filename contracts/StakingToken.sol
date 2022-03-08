@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "contracts/ARDImplementationV1.sol";
 import "@openzeppelin/contracts/utils/Checkpoints.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /**
  * @title Staking Token (STK)
@@ -108,6 +108,10 @@ contract StakingToken is ARDImplementationV1 {
     // events for adding or changing reward/punishment rate
     event RewardRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
     event PunishmentRateChanged(uint256 timestamp, uint256 newRate, uint256 oldRate);
+    // events for staking start/stop
+    event StakingStatusChanged(bool _enabled);
+    // events for stop early unstaking
+    event UnstakingAllowanceChanged(bool _isAllowed);
     /*****************************************************************
     ** FUNCTIONALITY                                                **
     ******************************************************************/
@@ -148,8 +152,8 @@ contract StakingToken is ARDImplementationV1 {
      * @param _tb address of the token bank account 
     */
     function setTokenBank(address _tb)
-        onlySupplyController
         public
+        onlySupplyController
     {
         tokenBank=_tb;
     }
@@ -174,10 +178,12 @@ contract StakingToken is ARDImplementationV1 {
      * @param _enabled enable/disable
     */
     function enableStakingProtocol(bool _enabled)
-        onlySupplyController
         public
+        onlySupplyController
     {
+        require(stakingEnabled!=_enabled, "same as it is");
         stakingEnabled=_enabled;
+        emit StakingStatusChanged(_enabled);
     }
 
     /**
@@ -200,7 +206,9 @@ contract StakingToken is ARDImplementationV1 {
         public
         onlySupplyController
     {
+        require(unstakingAllowed!=_enabled, "same as it is");
         unstakingAllowed=_enabled;
+        emit UnstakingAllowanceChanged(_enabled);
     }
 
     /**
@@ -341,7 +349,11 @@ contract StakingToken is ARDImplementationV1 {
      * @dev Returns the value in the latest stakes history, or zero if there are no stakes.
      * @param _stakeholder The stakeholder to retrieve the latest stake amount.
      */
-    function latest(address _stakeholder) internal view returns (uint256) {
+    function latest(address _stakeholder) 
+        internal 
+        view 
+        returns (uint256) 
+    {
         uint256 pos = stakeholders[_stakeholder].stakes.length;
         return pos == 0 ? 0 : stakeholders[_stakeholder].stakes[pos - 1].value;
     }
@@ -529,8 +541,8 @@ contract StakingToken is ARDImplementationV1 {
      * @param _value The reward per entire period for the given lock period
     */
     function setReward(uint256 _lockPeriod, uint64 _value)
-        onlySupplyController
         public
+        onlySupplyController
     {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
@@ -554,8 +566,8 @@ contract StakingToken is ARDImplementationV1 {
      *   ];
     */
     function setRewardTable(uint64[][] memory _rtbl)
-        onlySupplyController
         public
+        onlySupplyController
     {
         for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
             setReward(_rtbl[_rIndex][0], _rtbl[_rIndex][1]);
@@ -568,12 +580,26 @@ contract StakingToken is ARDImplementationV1 {
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
     function rewardRate(uint256 _lockPeriod)
-        view
         public
+        view
         returns(uint256)
     {
         require(rewardTable[_lockPeriod].rates.length>0,"no rate");
         return _lastRate(rewardTable[_lockPeriod]);
+    }
+
+    /**
+     * @dev A method for retrieve the history of the reward rate for a give lock period
+     * if there is no rate for given lock period, it throws error
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+    */
+    function rewardRateHistory(uint256 _lockPeriod)
+        public
+        view
+        returns(RateHistory memory)
+    {
+        require(rewardTable[_lockPeriod].rates.length>0,"no rate");
+        return rewardTable[_lockPeriod];
     }
 
     /**
@@ -582,8 +608,8 @@ contract StakingToken is ARDImplementationV1 {
      * @param _value The punishment per entire period for the given lock period
     */
     function setPunishment(uint256 _lockPeriod, uint64 _value)
-        onlySupplyController
         public
+        onlySupplyController
     {
         require(_value>=0 && _value<=10000, "invalid rate");
         uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
@@ -607,8 +633,8 @@ contract StakingToken is ARDImplementationV1 {
      *   ];
     */
     function setPunishmentTable(uint64[][] memory _ptbl)
-        onlySupplyController
         public
+        onlySupplyController
     {
         for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {
             setPunishment(_ptbl[_pIndex][0], _ptbl[_pIndex][1]);
@@ -621,12 +647,26 @@ contract StakingToken is ARDImplementationV1 {
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
     function punishmentRate(uint256 _lockPeriod)
-        view
         public
+        view
         returns(uint256)
     {
         require(punishmentTable[_lockPeriod].rates.length>0,"no rate");
         return _lastRate(punishmentTable[_lockPeriod]);
+    }
+
+    /**
+     * @dev A method for retrieve the history of the punishment rate for a give lock period
+     * if there is no rate for given lock period, it throws error
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+    */
+    function punishmentRateHistory(uint256 _lockPeriod)
+        public
+        view
+        returns(RateHistory memory)
+    {
+        require(punishmentTable[_lockPeriod].rates.length>0,"no rate");
+        return punishmentTable[_lockPeriod];
     }
 
     /**
