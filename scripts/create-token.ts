@@ -7,7 +7,7 @@ This will deploy the below contracts:
   - A proxy to the implementation contract, which is the contract that we actually interact with.
 */
 async function createARDToken() {
-  const ARD = await ethers.getContractFactory("ARDImplementationV1");
+  const ARD = await ethers.getContractFactory("StakingToken");
   const ard = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"], {
     initializer: "initialize",
   });
