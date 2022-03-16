@@ -55,7 +55,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev start/stop staking protocol
      */
-    bool internal unstakingAllowed;
+    bool internal earlyUnstakingAllowed;
 
     /**
      * @dev The minimum amount of tokens to stake
@@ -95,10 +95,6 @@ contract StakingToken is ARDImplementationV1 {
         _;
     }
 
-    modifier onlyUnstakingAllowed() {
-        require(unstakingAllowed, "early unstaking not allowed");
-        _;
-    }
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
@@ -111,7 +107,7 @@ contract StakingToken is ARDImplementationV1 {
     // events for staking start/stop
     event StakingStatusChanged(bool _enabled);
     // events for stop early unstaking
-    event UnstakingAllowanceChanged(bool _isAllowed);
+    event earlyUnstakingAllowanceChanged(bool _isAllowed);
     /*****************************************************************
     ** FUNCTIONALITY                                                **
     ******************************************************************/
@@ -143,8 +139,8 @@ contract StakingToken is ARDImplementationV1 {
         //enable staking by default
         enableStakingProtocol(true);
 
-        //enable unstaking
-        enableUnstaking(true);
+        //enable early unstaking
+        enableEarlyUnstaking(true);
     }
 
     /**
@@ -153,6 +149,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setTokenBank(address _tb)
         public
+        notPaused
         onlySupplyController
     {
         tokenBank=_tb;
@@ -179,6 +176,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function enableStakingProtocol(bool _enabled)
         public
+        notPaused
         onlySupplyController
     {
         require(stakingEnabled!=_enabled, "same as it is");
@@ -202,25 +200,26 @@ contract StakingToken is ARDImplementationV1 {
      * @dev enable/disable early unstaking
      * @param _enabled enable/disable
     */
-    function enableUnstaking(bool _enabled)
+    function enableEarlyUnstaking(bool _enabled)
         public
+        notPaused
         onlySupplyController
     {
-        require(unstakingAllowed!=_enabled, "same as it is");
-        unstakingAllowed=_enabled;
-        emit UnstakingAllowanceChanged(_enabled);
+        require(earlyUnstakingAllowed!=_enabled, "same as it is");
+        earlyUnstakingAllowed=_enabled;
+        emit earlyUnstakingAllowanceChanged(_enabled);
     }
 
     /**
      * @dev check whether unstoking is allowed
      * @return bool wheter unstaking protocol is allowed or not
     */
-    function isUnstakingAllowed()
+    function isEarlyUnstakingAllowed()
         public
         view
         returns(bool)
     {
-        return unstakingAllowed;
+        return earlyUnstakingAllowed;
     }
 
     /**
@@ -229,6 +228,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setMinimumStake(uint256 _minStake)
         public
+        notPaused
         onlySupplyController
     {
         minStake=_minStake;
@@ -411,7 +411,6 @@ contract StakingToken is ARDImplementationV1 {
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
         onlyActiveStaking
-        onlyUnstakingAllowed
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");
@@ -445,6 +444,7 @@ contract StakingToken is ARDImplementationV1 {
             _transfer(address(this), _stakeholder, _value);
         } else {
             //Punishment
+            require (earlyUnstakingAllowed, "early unstaking disabled");
             uint256 _punishment = _calculatePunishment(_stakedAt, block.timestamp, 
                 stakeholders[_stakeholder].stakes[stakeIndex].value,
                 stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
@@ -542,6 +542,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setReward(uint256 _lockPeriod, uint64 _value)
         public
+        notPaused
         onlySupplyController
     {
         require(_value>=0 && _value<=10000, "invalid rate");
@@ -609,6 +610,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setPunishment(uint256 _lockPeriod, uint64 _value)
         public
+        notPaused
         onlySupplyController
     {
         require(_value>=0 && _value<=10000, "invalid rate");
@@ -788,7 +790,7 @@ contract StakingToken is ARDImplementationV1 {
            Rate History:    (deployed)o(R0)----------------o(R1)-------------o(R2)-----------------o(R3)--------------------
            Given Period:                   o(from)--------------------------------------o(to)
            
-           Calculations:     ( 5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
+           Calculations:     ( 1.5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
         */
         uint256 total = 0;
         uint256 totalDuration = 0;

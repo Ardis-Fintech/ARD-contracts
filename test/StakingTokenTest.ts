@@ -448,8 +448,8 @@ describe("ARD Staking protocol", function () {
       const totalStaked = await this.token.totalStakes();
       assert.equal(totalStaked, 10000000000);
 
-      // stop unstaking
-      await this.token.enableUnstaking(false);
+      // stop early unstaking
+      await this.token.enableEarlyUnstaking(false);
 
       // unstake 100 ARDs for user1 would fail
       await expect(this.token.connect(this.user1).unstake(1, 10000000000)).to.be.reverted;
