@@ -283,7 +283,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for a stakeholder to remove a stake.
+     * @dev A method for supply controller to remove a stake of a stakeholder.
      * @param _stakeholder The stakeholder to unstake his tokens.
      * @param _stakedID The unique id of the stake
      * @param _value The size of the stake to be removed.
@@ -590,7 +590,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for retrieve the history of the reward rate for a give lock period
+     * @dev A method for retrieve the history of the reward rate for a given lock period
      * if there is no rate for given lock period, it throws error
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
@@ -717,7 +717,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /** 
-     * @dev A simple method that calculates the rewards for stakeholder from a given priod which is set by _from and _to.
+     * @dev A simple method that calculates the rewards for stakeholder from a given period which is set by _from and _to.
      * @param _from The start date of the period.
      * @param _to The end date of the period.
      * @param _value Amount of staking.
@@ -737,7 +737,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /** 
-     * @dev A simple method that calculates the punishment for stakeholder from a given priod which is set by _from and _to.
+     * @dev A simple method that calculates the punishment for stakeholder from a given period which is set by _from and _to.
      * @param _from The start date of the period.
      * @param _to The end date of the period.
      * @param _value Amount of staking.
@@ -757,7 +757,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /** 
-     * @dev calculates the total amount of reward/punishment for a given priod which is set by _from and _to. This method calculates 
+     * @dev calculates the total amount of reward/punishment for a given period which is set by _from and _to. This method calculates 
      * based on the history of rate changes. So if in this period, three times rate have had changed, this function calculates for each
      * of the rates separately and returns total 
      * @param _history The history of rates
@@ -835,7 +835,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-    * @dev this function retriev last rate of a given rate history
+    * @dev this function retrieve last rate of a given rate history
     * @param _history the history of rate changes
     * @return uint256 the last rate which is current rate
      */
@@ -848,7 +848,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-    * @dev this function retriev last rate timestamp from a given rate history
+    * @dev this function retrieve last rate timestamp from a given rate history
     * @param _history the history of rate changes
     * @return uint256 the last rate timestamp which is the timestamp of current rate benn set
      */
