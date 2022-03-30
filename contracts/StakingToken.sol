@@ -613,7 +613,7 @@ contract StakingToken is ARDImplementationV1 {
         notPaused
         onlySupplyController
     {
-        require(_value>=0 && _value<=10000, "invalid rate");
+        require(_value>=0 && _value<=2000, "invalid rate");
         uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
         require(_value!=oldRate, "same as it is");
