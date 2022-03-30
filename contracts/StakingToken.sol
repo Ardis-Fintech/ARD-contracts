@@ -672,7 +672,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method to the aggregated rewards from all stakeholders.
+     * @dev A method to inquiry the aggregated rewards from all the stakes of the stakeholder.
      * @param _stakeholder The stakeholder to get aggregated reward balance.
      * @return uint256 The aggregated rewards of the stakeholder.
      */
@@ -691,10 +691,31 @@ contract StakingToken is ARDImplementationV1 {
         return _totalRewards;
     }
 
+    /**
+     * @dev A method to inquiry the aggregated punishment from all the stakes of the stakeholder.
+     * @param _stakeholder The stakeholder to get aggregated punishment.
+     * @return uint256 The aggregated punishments of the stakeholder.
+     */
+    function punishmentOf(address _stakeholder)
+        public
+        view
+        returns(uint256)
+    {
+        require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
+        uint256 _totalPunishments = 0;
+        for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
+            Stake storage s = stakeholders[_stakeholder].stakes[i];
+            uint256 r = _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+            _totalPunishments = _totalPunishments.add(r);
+        }
+        return _totalPunishments;
+    }
+
     /** 
-     * @dev A simple method that calculates the rewards for each stakeholder.
+     * @dev A simple method to calculate the rewards for a specific stake of a stakeholder.
      * The rewards only is available after stakeholder unstakes the ARDs.
      * @param _stakeholder The stakeholder to calculate rewards for.
+     * @param _stakedID The stake id.
      * @return uint256 return the reward for the stake with specific ID.
      */
     function calculateRewardFor(address _stakeholder, uint256 _stakedID)
@@ -711,13 +732,13 @@ contract StakingToken is ARDImplementationV1 {
                 break;
             }
         }
-        require(found,"stake not exist");
+        require(found,"invalid stake id");
         Stake storage s = stakeholders[_stakeholder].stakes[stakeIndex];
         return _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
     }
 
     /** 
-     * @dev A simple method that calculates the rewards for stakeholder from a given period which is set by _from and _to.
+     * @dev A simple method to calculates the reward for stakeholder from a given period which is set by _from and _to.
      * @param _from The start date of the period.
      * @param _to The end date of the period.
      * @param _value Amount of staking.
@@ -734,6 +755,32 @@ contract StakingToken is ARDImplementationV1 {
         if (durationDays<_lockPeriod) return 0;
 
         return _calculateTotal(rewardTable[_lockPeriod],_from,_to,_value,_lockPeriod);
+    }
+
+   /** 
+     * @dev A simple method to calculate punishment for a specific stake of a stakeholder.
+     * The punishment is only charges after stakeholder unstakes the ARDs.
+     * @param _stakeholder The stakeholder to calculate punishment for.
+     * @param _stakedID The stake id.
+     * @return uint256 return the punishment for the stake with specific ID.
+     */
+    function calculatePunishmentFor(address _stakeholder, uint256 _stakedID)
+        public
+        view
+        returns(uint256)
+    {
+        require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
+        uint256 stakeIndex;
+        bool found = false;
+        for (stakeIndex = 0; stakeIndex < stakeholders[_stakeholder].stakes.length; stakeIndex += 1){
+            if (stakeholders[_stakeholder].stakes[stakeIndex].id == _stakedID) {
+                found = true;
+                break;
+            }
+        }
+        require(found,"invalid stake id");
+        Stake storage s = stakeholders[_stakeholder].stakes[stakeIndex];
+        return _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
     }
 
     /** 
