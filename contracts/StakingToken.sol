@@ -891,18 +891,4 @@ contract StakingToken is ARDImplementationV1 {
     {
         return _history.rates[_history.rates.length-1].rate;
     }
-
-    /**
-    * @dev this function retrieve last rate timestamp from a given rate history
-    * @param _history the history of rate changes
-    * @return uint256 the last rate timestamp which is the timestamp of current rate benn set
-     */
-    function _lastTimestamp(RateHistory storage _history)
-        internal
-        view
-        returns(uint256)
-    {
-        return _history.rates[_history.rates.length-1].timestamp;
-    }
-
 }
