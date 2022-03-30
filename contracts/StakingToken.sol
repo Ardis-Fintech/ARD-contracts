@@ -359,7 +359,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev Pushes a value onto a History so that it is stored as the checkpoint for the current block.
+     * @dev Stakes _value for a stake holder. It pushes a value onto a History so that it is stored as the checkpoint for the current block.
      *
      * Returns previous value and new value.
      */
@@ -404,8 +404,8 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev Pushes a value onto a History so that it is stored as the checkpoint for the current block.
-     *
+     * @dev Unstake _value from specific stake for a stake holder. It calculate the reward/punishment as well.
+     * It pushes a value onto a History so that it is stored as the checkpoint for the current block.
      * Returns previous value and new value.
      */
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
@@ -427,7 +427,7 @@ contract StakingToken is ARDImplementationV1 {
                 break;
             }
         }
-        require(found,"stake not exist");
+        require(found,"invalid stake id");
         require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"not enough stake");
         uint256 _stakedAt = stakeholders[_stakeholder].stakes[stakeIndex].stakedAt;
         require(block.timestamp>=_stakedAt,"invalid stake");
@@ -436,8 +436,7 @@ contract StakingToken is ARDImplementationV1 {
         if (stakingDays>=stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod) {
             //Reward
             uint256 _reward = _calculateReward(_stakedAt, block.timestamp, 
-                stakeholders[_stakeholder].stakes[stakeIndex].value,
-                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+                _value, stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
             if (_reward>0) {
                 _mint(_stakeholder,_reward);
             }
@@ -446,10 +445,9 @@ contract StakingToken is ARDImplementationV1 {
             //Punishment
             require (earlyUnstakingAllowed, "early unstaking disabled");
             uint256 _punishment = _calculatePunishment(_stakedAt, block.timestamp, 
-                stakeholders[_stakeholder].stakes[stakeIndex].value,
-                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+                _value, stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
             _punishment = _punishment<_value ? _punishment : _value;
-            //If there is punishment, send them to tokenBank
+            //If there is punishment, send them to token bank
             if (_punishment>0) {
                 _transfer(address(this), tokenBank, _punishment); 
             }
@@ -478,7 +476,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev removes a record from stake array of a specific stake holder
+     * @dev removes a record from the stake array of a specific stake holder
      * @param _stakeholder The stakeholder to remove stake from.
      * @param index the stake index (uinque ID)
      * Returns previous value and new value.
