@@ -908,4 +908,7 @@ contract StakingToken is ARDImplementationV1 {
     {
         return _history.rates[_history.rates.length-1].rate;
     }
+
+    // storage gap for adding new states in upgrades 
+    uint256[50] private __gap;
 }

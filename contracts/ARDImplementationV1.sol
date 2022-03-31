@@ -452,4 +452,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _burn(_msgSender(), _value);
         return true;
     }
+
+    // storage gap for adding new states in upgrades 
+    uint256[50] private __stgap0;
 }
