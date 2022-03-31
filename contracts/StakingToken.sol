@@ -65,7 +65,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev The id of the last stake
      */
-    uint256 internal lastStakeID;
+    uint256 internal _lastStakeID;
 
     /**
      * @dev staking history
@@ -134,7 +134,7 @@ contract StakingToken is ARDImplementationV1 {
         setMinterRole(address(this));
 
         // set last stake id
-        lastStakeID = 0;
+        _lastStakeID = 0;
 
         //enable staking by default
         enableStakingProtocol(true);
@@ -250,6 +250,7 @@ contract StakingToken is ARDImplementationV1 {
      * @dev A method for a stakeholder to create a stake.
      * @param _value The size of the stake to be created.
      * @param _lockPeriod the period of lock for this stake
+     * @return uint256 new stake id 
     */
     function stake(uint256 _value, uint64 _lockPeriod)
         public
@@ -262,6 +263,7 @@ contract StakingToken is ARDImplementationV1 {
      * @param _stakeholder address of the stake holder
      * @param _value The size of the stake to be created.
      * @param _lockPeriod the period of lock for this stake
+     * @return uint256 new stake id 
      */
     function stakeFor(address _stakeholder, uint256 _value, uint64 _lockPeriod)
         public
@@ -361,7 +363,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev Stakes _value for a stake holder. It pushes a value onto a History so that it is stored as the checkpoint for the current block.
      *
-     * Returns previous value and new value.
+     * @return uint256 new stake id 
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
@@ -386,9 +388,9 @@ contract StakingToken is ARDImplementationV1 {
         } else {
             // uint256 _id = 1;
             // if (pos > 0) _id = stakeholders[_stakeholder].stakes[pos - 1].id.add(1);
-            lastStakeID++;
+            _lastStakeID++;
             stakeholders[_stakeholder].stakes.push(Stake({
-                id: lastStakeID,
+                id: _lastStakeID,
                 stakedAt: block.timestamp,
                 value: _value,
                 lockPeriod: _lockPeriod
@@ -400,7 +402,7 @@ contract StakingToken is ARDImplementationV1 {
         _updateTotalStaked(_value, true);
 
         emit Staked(_stakeholder,_value, stakeholders[_stakeholder].totalStaked, old);
-        return(stakeholders[_stakeholder].stakes[pos-1].stakedAt);
+        return(stakeholders[_stakeholder].stakes[pos-1].id);
     }
 
     /**
@@ -514,6 +516,17 @@ contract StakingToken is ARDImplementationV1 {
         Checkpoints.push(totalStakedHistory, newStake);
     }
 
+    /**
+     * @dev A method to get last stake id.
+     * @return uint256 returns the ID of last stake
+     */
+    function lastStakeID()
+        public
+        view
+        returns(uint256)
+    {
+        return _lastStakeID;
+    }
     ///////////////////////////////////////////////////////////////////////
     // STAKEHOLDERS                                                      //
     ///////////////////////////////////////////////////////////////////////
@@ -670,43 +683,47 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method to inquiry the aggregated rewards from all the stakes of the stakeholder.
-     * @param _stakeholder The stakeholder to get aggregated reward balance.
-     * @return uint256 The aggregated rewards of the stakeholder.
+     * @dev A method to inquiry the rewards from the specific stake of the stakeholder.
+     * @param _stakeholder The stakeholder to get the reward for his stake.
+     * @param _stakedID The stake id.
+     * @return uint256 The reward of the stake.
      */
-    function rewardOf(address _stakeholder)
+    function rewardOf(address _stakeholder,  uint256 _stakedID)
         public
         view
         returns(uint256)
     {
         require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
-        uint256 _totalRewards = 0;
-        for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
-            Stake storage s = stakeholders[_stakeholder].stakes[i];
-            uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
-            _totalRewards = _totalRewards.add(r);
-        }
-        return _totalRewards;
+        // uint256 _totalRewards = 0;
+        // for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
+        //     Stake storage s = stakeholders[_stakeholder].stakes[i];
+        //     uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+        //     _totalRewards = _totalRewards.add(r);
+        // }
+        // return _totalRewards;
+        return calculateRewardFor(_stakeholder,_stakedID);
     }
 
     /**
-     * @dev A method to inquiry the aggregated punishment from all the stakes of the stakeholder.
-     * @param _stakeholder The stakeholder to get aggregated punishment.
-     * @return uint256 The aggregated punishments of the stakeholder.
+     * @dev A method to inquiry the punishment from the early unstaking of the specific stake of the stakeholder.
+     * @param _stakeholder The stakeholder to get the punishment for early unstake.
+     * @param _stakedID The stake id.
+     * @return uint256 The punishment of the early unstaking of the stake.
      */
-    function punishmentOf(address _stakeholder)
+    function punishmentOf(address _stakeholder,  uint256 _stakedID)
         public
         view
         returns(uint256)
     {
         require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
-        uint256 _totalPunishments = 0;
-        for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
-            Stake storage s = stakeholders[_stakeholder].stakes[i];
-            uint256 r = _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
-            _totalPunishments = _totalPunishments.add(r);
-        }
-        return _totalPunishments;
+        // uint256 _totalPunishments = 0;
+        // for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
+        //     Stake storage s = stakeholders[_stakeholder].stakes[i];
+        //     uint256 r = _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+        //     _totalPunishments = _totalPunishments.add(r);
+        // }
+        // return _totalPunishments;
+        return calculatePunishmentFor(_stakeholder,_stakedID);
     }
 
     /** 
@@ -717,7 +734,7 @@ contract StakingToken is ARDImplementationV1 {
      * @return uint256 return the reward for the stake with specific ID.
      */
     function calculateRewardFor(address _stakeholder, uint256 _stakedID)
-        public
+        internal
         view
         returns(uint256)
     {
@@ -756,14 +773,14 @@ contract StakingToken is ARDImplementationV1 {
     }
 
    /** 
-     * @dev A simple method to calculate punishment for a specific stake of a stakeholder.
+     * @dev A simple method to calculate punishment for early unstaking of a specific stake of the stakeholder.
      * The punishment is only charges after stakeholder unstakes the ARDs.
      * @param _stakeholder The stakeholder to calculate punishment for.
      * @param _stakedID The stake id.
      * @return uint256 return the punishment for the stake with specific ID.
      */
     function calculatePunishmentFor(address _stakeholder, uint256 _stakedID)
-        public
+        internal
         view
         returns(uint256)
     {

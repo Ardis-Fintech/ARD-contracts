@@ -144,6 +144,8 @@ describe("ARD Staking protocol", function () {
 
     it("test rewards after completing lock period", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
+
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -158,7 +160,7 @@ describe("ARD Staking protocol", function () {
       // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
 
       // unstake 100 ARDs for user1
-      const user1Reward = await this.token.rewardOf(this.user1.address);
+      const user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 100000000);
 
       await this.token.connect(this.user1).unstake(1, 10000000000);
@@ -169,6 +171,7 @@ describe("ARD Staking protocol", function () {
 
     it("test punishment after withdraw stake earlier than lock period", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -183,7 +186,7 @@ describe("ARD Staking protocol", function () {
       // await network.provider.send("evm_mine") // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
 
       // unstake 100 ARDs for user1
-      const user1Reward = await this.token.rewardOf(this.user1.address);
+      const user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 0);
 
       await this.token.connect(this.user1).unstake(1, 10000000000);
@@ -202,6 +205,8 @@ describe("ARD Staking protocol", function () {
   describe("test more complicated scenarios for staking rewards and punishments", function () {
     it("test reward after changing rates", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
+
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -225,7 +230,7 @@ describe("ARD Staking protocol", function () {
       await timeTravel(10);
 
       // unstake 100 ARDs for user1
-      const user1Reward = await this.token.rewardOf(this.user1.address);
+      const user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 266666666);
 
       // await this.token.connect(this.user1).unstake(1, 100);
@@ -263,6 +268,8 @@ describe("ARD Staking protocol", function () {
 
     it("change rate after staking period shouldn't affect reward", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
+
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -277,7 +284,7 @@ describe("ARD Staking protocol", function () {
       await this.token.setReward(30, 200);
 
       // unstake 100 ARDs for user1
-      const user1Reward = await this.token.rewardOf(this.user1.address);
+      const user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 100000000);
 
       // await this.token.connect(this.user1).unstake(1, 100);
@@ -287,6 +294,8 @@ describe("ARD Staking protocol", function () {
 
     it("change rate and check rewards periodically", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
+
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -301,14 +310,14 @@ describe("ARD Staking protocol", function () {
       await this.token.setReward(30, 200);
 
       // unstake 100 ARDs for user1
-      let user1Reward = await this.token.rewardOf(this.user1.address);
+      let user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 0);
 
       // move timestamp to 10 days later
       await timeTravel(10);
 
       // unstake 100 ARDs for user1
-      user1Reward = await this.token.rewardOf(this.user1.address);
+      user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 0);
 
       // set new reward rate after 10 days of staking
@@ -318,12 +327,14 @@ describe("ARD Staking protocol", function () {
       await timeTravel(10);
 
       // unstake 100 ARDs for user1
-      user1Reward = await this.token.rewardOf(this.user1.address);
+      user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 300000000);
     });
 
     it("reward won't be added after extra locking time", async function () {
       await this.token.connect(this.user1).stake(10000000000, 30);
+      const stakeID = await this.token.lastStakeID();
+
       // check user balance
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 90000000000);
@@ -347,7 +358,7 @@ describe("ARD Staking protocol", function () {
       await timeTravel(20);
 
       // unstake 100 ARDs for user1
-      const user1Reward = await this.token.rewardOf(this.user1.address);
+      const user1Reward = await this.token.rewardOf(this.user1.address, stakeID);
       assert.equal(user1Reward, 300000000);
     });
   });
