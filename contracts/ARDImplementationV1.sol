@@ -36,6 +36,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /*****************************************************************
     ** ROLES                                                        **
     ******************************************************************/
+    bytes32 public constant SUPER_ADMIN_ROLE = keccak256("SUPER_ADMIN_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant ASSET_PROTECTION_ROLE = keccak256("ASSET_PROTECTION_ROLE");
@@ -94,6 +96,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
 
     uint8 internal _decimals;
 
+    address internal _curSuperadmin;
+
     // ASSET PROTECTION DATA
     mapping(address => bool) internal frozen;
 
@@ -110,15 +114,21 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         __Ownable_init();
         __ERC20_init(name_, symbol_);
 
+        //set super admin role for manage admins
+        _setRoleAdmin(SUPER_ADMIN_ROLE, SUPER_ADMIN_ROLE);
+        _curSuperadmin = _msgSender();
         //set default admin role for all roles
-        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(BURNER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(ASSET_PROTECTION_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(ADMIN_ROLE, SUPER_ADMIN_ROLE);
+        //setup other roles
+        _setRoleAdmin(MINTER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(BURNER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ASSET_PROTECTION_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, ADMIN_ROLE);
 
         // Grant the contract deployer the default admin role: it will be able
         // to grant and revoke any roles
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _setupRole(SUPER_ADMIN_ROLE, _msgSender());
+        _setupRole(ADMIN_ROLE, _msgSender());
         // Grant the contract deployer all other roles by default
         _setupRole(MINTER_ROLE, _msgSender());
         _setupRole(BURNER_ROLE, _msgSender());
@@ -260,6 +270,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
         require(account!=address(0),"zero account");
+        require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _grantRole(role, account);
     }
 
@@ -274,7 +285,21 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function revokeRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
         require(account!=address(0),"zero account");
+        require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _revokeRole(role, account);
+    }
+
+    /**
+     * @dev transfer the Super Admin role to specific account. Only one account can be super admin
+     * @param _addr The address to assign super admin role.
+     */
+    function transferSupeAdminTo(address _addr) public notPaused onlyOwner {
+        _revokeRole(SUPER_ADMIN_ROLE, _curSuperadmin);
+        _grantRole(SUPER_ADMIN_ROLE, _addr);
+        _curSuperadmin=_addr;
+    }
+    function superAdmin() public view returns (address) {
+        return _curSuperadmin;
     }
 
     /**
@@ -282,13 +307,13 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @param _addr The address to assign minter role.
      */
     function setAdminRole(address _addr) public {
-        grantRole(DEFAULT_ADMIN_ROLE, _addr);
+        grantRole(ADMIN_ROLE, _addr);
     }
     function revokeAdminRole(address _addr) public {
-        revokeRole(DEFAULT_ADMIN_ROLE, _addr);
+        revokeRole(ADMIN_ROLE, _addr);
     }
     function isRoleAdmin(address _addr) public view returns (bool) {
-        return hasRole(DEFAULT_ADMIN_ROLE, _addr);
+        return hasRole(ADMIN_ROLE, _addr);
     }
 
     /**
