@@ -312,7 +312,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     function revokeAdminRole(address _addr) public {
         revokeRole(ADMIN_ROLE, _addr);
     }
-    function isRoleAdmin(address _addr) public view returns (bool) {
+    function isAdmin(address _addr) public view returns (bool) {
         return hasRole(ADMIN_ROLE, _addr);
     }
 

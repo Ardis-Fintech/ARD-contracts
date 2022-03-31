@@ -2030,13 +2030,13 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @param _addr The address to assign minter role.
      */
     function setAdminRole(address _addr) public {
-        grantRole(DEFAULT_ADMIN_ROLE, _addr);
+        grantRole(DEFAULT_ADMIN, _addr);
     }
     function revokeAdminRole(address _addr) public {
-        revokeRole(DEFAULT_ADMIN_ROLE, _addr);
+        revokeRole(DEFAULT_ADMIN, _addr);
     }
-    function isRoleAdmin(address _addr) public view returns (bool) {
-        return hasRole(DEFAULT_ADMIN_ROLE, _addr);
+    function isAdmin(address _addr) public view returns (bool) {
+        return hasRole(DEFAULT_ADMIN, _addr);
     }
 
     /**

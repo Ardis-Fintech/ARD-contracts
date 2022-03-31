@@ -1727,7 +1727,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
     function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
-            emit RoleGranted(role, account, _msgSender());
+            emit (role, account, _msgSender());
         }
     }
 
@@ -1749,7 +1749,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
 // File contracts/ARDImplementationV1.sol
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity 0.8.2;
 pragma experimental ABIEncoderV2;
 
 
@@ -1784,6 +1784,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /*****************************************************************
     ** ROLES                                                        **
     ******************************************************************/
+    bytes32 public constant SUPER_ADMIN_ROLE = keccak256("SUPER_ADMIN_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant ASSET_PROTECTION_ROLE = keccak256("ASSET_PROTECTION_ROLE");
@@ -1842,6 +1844,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
 
     uint8 internal _decimals;
 
+    address internal _curSuperadmin;
+
     // ASSET PROTECTION DATA
     mapping(address => bool) internal frozen;
 
@@ -1858,15 +1862,21 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         __Ownable_init();
         __ERC20_init(name_, symbol_);
 
+        //set super admin role for manage admins
+        _setRoleAdmin(SUPER_ADMIN_ROLE, SUPER_ADMIN_ROLE);
+        _curSuperadmin = _msgSender();
         //set default admin role for all roles
-        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(BURNER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(ASSET_PROTECTION_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(ADMIN_ROLE, SUPER_ADMIN_ROLE);
+        //setup other roles
+        _setRoleAdmin(MINTER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(BURNER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ASSET_PROTECTION_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, ADMIN_ROLE);
 
         // Grant the contract deployer the default admin role: it will be able
         // to grant and revoke any roles
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _setupRole(SUPER_ADMIN_ROLE, _msgSender());
+        _setupRole(ADMIN_ROLE, _msgSender());
         // Grant the contract deployer all other roles by default
         _setupRole(MINTER_ROLE, _msgSender());
         _setupRole(BURNER_ROLE, _msgSender());
@@ -2008,6 +2018,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function grantRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
         require(account!=address(0),"zero account");
+        require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _grantRole(role, account);
     }
 
@@ -2022,7 +2033,21 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      */
     function revokeRole(bytes32 role, address account) public override notPaused onlyRole(getRoleAdmin(role)) {
         require(account!=address(0),"zero account");
+        require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _revokeRole(role, account);
+    }
+
+    /**
+     * @dev transfer the Super Admin role to specific account. Only one account can be super admin
+     * @param _addr The address to assign super admin role.
+     */
+    function transferSupeAdminTo(address _addr) public notPaused onlyOwner {
+        _revokeRole(SUPER_ADMIN_ROLE, _curSuperadmin);
+        _grantRole(SUPER_ADMIN_ROLE, _addr);
+        _curSuperadmin=_addr;
+    }
+    function superAdmin() public view returns (address) {
+        return _curSuperadmin;
     }
 
     /**
@@ -2030,13 +2055,13 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * @param _addr The address to assign minter role.
      */
     function setAdminRole(address _addr) public {
-        grantRole(DEFAULT_ADMIN_ROLE, _addr);
+        grantRole(ADMIN_ROLE, _addr);
     }
     function revokeAdminRole(address _addr) public {
-        revokeRole(DEFAULT_ADMIN_ROLE, _addr);
+        revokeRole(ADMIN_ROLE, _addr);
     }
-    function isRoleAdmin(address _addr) public view returns (bool) {
-        return hasRole(DEFAULT_ADMIN_ROLE, _addr);
+    function isAdmin(address _addr) public view returns (bool) {
+        return hasRole(ADMIN_ROLE, _addr);
     }
 
     /**
@@ -2200,6 +2225,9 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _burn(_msgSender(), _value);
         return true;
     }
+
+    // storage gap for adding new states in upgrades 
+    uint256[50] private __stgap0;
 }
 
 
@@ -2586,7 +2614,7 @@ library Checkpoints {
 // File contracts/StakingToken.sol
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity 0.8.2;
 pragma experimental ABIEncoderV2;
 
 
@@ -2641,7 +2669,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev start/stop staking protocol
      */
-    bool internal unstakingAllowed;
+    bool internal earlyUnstakingAllowed;
 
     /**
      * @dev The minimum amount of tokens to stake
@@ -2651,7 +2679,7 @@ contract StakingToken is ARDImplementationV1 {
     /**
      * @dev The id of the last stake
      */
-    uint256 internal lastStakeID;
+    uint256 internal _lastStakeID;
 
     /**
      * @dev staking history
@@ -2681,10 +2709,6 @@ contract StakingToken is ARDImplementationV1 {
         _;
     }
 
-    modifier onlyUnstakingAllowed() {
-        require(unstakingAllowed, "early unstaking not allowed");
-        _;
-    }
     /*****************************************************************
     ** EVENTS                                                       **
     ******************************************************************/
@@ -2697,7 +2721,7 @@ contract StakingToken is ARDImplementationV1 {
     // events for staking start/stop
     event StakingStatusChanged(bool _enabled);
     // events for stop early unstaking
-    event UnstakingAllowanceChanged(bool _isAllowed);
+    event earlyUnstakingAllowanceChanged(bool _isAllowed);
     /*****************************************************************
     ** FUNCTIONALITY                                                **
     ******************************************************************/
@@ -2724,13 +2748,13 @@ contract StakingToken is ARDImplementationV1 {
         setMinterRole(address(this));
 
         // set last stake id
-        lastStakeID = 0;
+        _lastStakeID = 0;
 
         //enable staking by default
         enableStakingProtocol(true);
 
-        //enable unstaking
-        enableUnstaking(true);
+        //enable early unstaking
+        enableEarlyUnstaking(true);
     }
 
     /**
@@ -2739,6 +2763,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setTokenBank(address _tb)
         public
+        notPaused
         onlySupplyController
     {
         tokenBank=_tb;
@@ -2765,6 +2790,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function enableStakingProtocol(bool _enabled)
         public
+        notPaused
         onlySupplyController
     {
         require(stakingEnabled!=_enabled, "same as it is");
@@ -2788,25 +2814,26 @@ contract StakingToken is ARDImplementationV1 {
      * @dev enable/disable early unstaking
      * @param _enabled enable/disable
     */
-    function enableUnstaking(bool _enabled)
+    function enableEarlyUnstaking(bool _enabled)
         public
+        notPaused
         onlySupplyController
     {
-        require(unstakingAllowed!=_enabled, "same as it is");
-        unstakingAllowed=_enabled;
-        emit UnstakingAllowanceChanged(_enabled);
+        require(earlyUnstakingAllowed!=_enabled, "same as it is");
+        earlyUnstakingAllowed=_enabled;
+        emit earlyUnstakingAllowanceChanged(_enabled);
     }
 
     /**
      * @dev check whether unstoking is allowed
      * @return bool wheter unstaking protocol is allowed or not
     */
-    function isUnstakingAllowed()
+    function isEarlyUnstakingAllowed()
         public
         view
         returns(bool)
     {
-        return unstakingAllowed;
+        return earlyUnstakingAllowed;
     }
 
     /**
@@ -2815,6 +2842,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setMinimumStake(uint256 _minStake)
         public
+        notPaused
         onlySupplyController
     {
         minStake=_minStake;
@@ -2836,6 +2864,7 @@ contract StakingToken is ARDImplementationV1 {
      * @dev A method for a stakeholder to create a stake.
      * @param _value The size of the stake to be created.
      * @param _lockPeriod the period of lock for this stake
+     * @return uint256 new stake id 
     */
     function stake(uint256 _value, uint64 _lockPeriod)
         public
@@ -2848,6 +2877,7 @@ contract StakingToken is ARDImplementationV1 {
      * @param _stakeholder address of the stake holder
      * @param _value The size of the stake to be created.
      * @param _lockPeriod the period of lock for this stake
+     * @return uint256 new stake id 
      */
     function stakeFor(address _stakeholder, uint256 _value, uint64 _lockPeriod)
         public
@@ -2869,7 +2899,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for a stakeholder to remove a stake.
+     * @dev A method for supply controller to remove a stake of a stakeholder.
      * @param _stakeholder The stakeholder to unstake his tokens.
      * @param _stakedID The unique id of the stake
      * @param _value The size of the stake to be removed.
@@ -2945,9 +2975,9 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev Pushes a value onto a History so that it is stored as the checkpoint for the current block.
+     * @dev Stakes _value for a stake holder. It pushes a value onto a History so that it is stored as the checkpoint for the current block.
      *
-     * Returns previous value and new value.
+     * @return uint256 new stake id 
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
@@ -2972,9 +3002,9 @@ contract StakingToken is ARDImplementationV1 {
         } else {
             // uint256 _id = 1;
             // if (pos > 0) _id = stakeholders[_stakeholder].stakes[pos - 1].id.add(1);
-            lastStakeID++;
+            _lastStakeID++;
             stakeholders[_stakeholder].stakes.push(Stake({
-                id: lastStakeID,
+                id: _lastStakeID,
                 stakedAt: block.timestamp,
                 value: _value,
                 lockPeriod: _lockPeriod
@@ -2986,18 +3016,17 @@ contract StakingToken is ARDImplementationV1 {
         _updateTotalStaked(_value, true);
 
         emit Staked(_stakeholder,_value, stakeholders[_stakeholder].totalStaked, old);
-        return(stakeholders[_stakeholder].stakes[pos-1].stakedAt);
+        return(stakeholders[_stakeholder].stakes[pos-1].id);
     }
 
     /**
-     * @dev Pushes a value onto a History so that it is stored as the checkpoint for the current block.
-     *
+     * @dev Unstake _value from specific stake for a stake holder. It calculate the reward/punishment as well.
+     * It pushes a value onto a History so that it is stored as the checkpoint for the current block.
      * Returns previous value and new value.
      */
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
         onlyActiveStaking
-        onlyUnstakingAllowed
     {
         //_burn(_msgSender(), _stake);
         require(_stakeholder!=address(0),"zero account");
@@ -3014,7 +3043,7 @@ contract StakingToken is ARDImplementationV1 {
                 break;
             }
         }
-        require(found,"stake not exist");
+        require(found,"invalid stake id");
         require(_value<=stakeholders[_stakeholder].stakes[stakeIndex].value,"not enough stake");
         uint256 _stakedAt = stakeholders[_stakeholder].stakes[stakeIndex].stakedAt;
         require(block.timestamp>=_stakedAt,"invalid stake");
@@ -3023,19 +3052,18 @@ contract StakingToken is ARDImplementationV1 {
         if (stakingDays>=stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod) {
             //Reward
             uint256 _reward = _calculateReward(_stakedAt, block.timestamp, 
-                stakeholders[_stakeholder].stakes[stakeIndex].value,
-                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+                _value, stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
             if (_reward>0) {
                 _mint(_stakeholder,_reward);
             }
             _transfer(address(this), _stakeholder, _value);
         } else {
             //Punishment
+            require (earlyUnstakingAllowed, "early unstaking disabled");
             uint256 _punishment = _calculatePunishment(_stakedAt, block.timestamp, 
-                stakeholders[_stakeholder].stakes[stakeIndex].value,
-                stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
+                _value, stakeholders[_stakeholder].stakes[stakeIndex].lockPeriod);
             _punishment = _punishment<_value ? _punishment : _value;
-            //If there is punishment, send them to tokenBank
+            //If there is punishment, send them to token bank
             if (_punishment>0) {
                 _transfer(address(this), tokenBank, _punishment); 
             }
@@ -3064,7 +3092,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev removes a record from stake array of a specific stake holder
+     * @dev removes a record from the stake array of a specific stake holder
      * @param _stakeholder The stakeholder to remove stake from.
      * @param index the stake index (uinque ID)
      * Returns previous value and new value.
@@ -3102,6 +3130,17 @@ contract StakingToken is ARDImplementationV1 {
         Checkpoints.push(totalStakedHistory, newStake);
     }
 
+    /**
+     * @dev A method to get last stake id.
+     * @return uint256 returns the ID of last stake
+     */
+    function lastStakeID()
+        public
+        view
+        returns(uint256)
+    {
+        return _lastStakeID;
+    }
     ///////////////////////////////////////////////////////////////////////
     // STAKEHOLDERS                                                      //
     ///////////////////////////////////////////////////////////////////////
@@ -3128,6 +3167,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setReward(uint256 _lockPeriod, uint64 _value)
         public
+        notPaused
         onlySupplyController
     {
         require(_value>=0 && _value<=10000, "invalid rate");
@@ -3175,7 +3215,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method for retrieve the history of the reward rate for a give lock period
+     * @dev A method for retrieve the history of the reward rate for a given lock period
      * if there is no rate for given lock period, it throws error
      * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
     */
@@ -3195,9 +3235,10 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setPunishment(uint256 _lockPeriod, uint64 _value)
         public
+        notPaused
         onlySupplyController
     {
-        require(_value>=0 && _value<=10000, "invalid rate");
+        require(_value>=0 && _value<=2000, "invalid rate");
         uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
         uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
         require(_value!=oldRate, "same as it is");
@@ -3256,33 +3297,58 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-     * @dev A method to the aggregated rewards from all stakeholders.
-     * @param _stakeholder The stakeholder to get aggregated reward balance.
-     * @return uint256 The aggregated rewards of the stakeholder.
+     * @dev A method to inquiry the rewards from the specific stake of the stakeholder.
+     * @param _stakeholder The stakeholder to get the reward for his stake.
+     * @param _stakedID The stake id.
+     * @return uint256 The reward of the stake.
      */
-    function rewardOf(address _stakeholder)
+    function rewardOf(address _stakeholder,  uint256 _stakedID)
         public
         view
         returns(uint256)
     {
         require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
-        uint256 _totalRewards = 0;
-        for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
-            Stake storage s = stakeholders[_stakeholder].stakes[i];
-            uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
-            _totalRewards = _totalRewards.add(r);
-        }
-        return _totalRewards;
+        // uint256 _totalRewards = 0;
+        // for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
+        //     Stake storage s = stakeholders[_stakeholder].stakes[i];
+        //     uint256 r = _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+        //     _totalRewards = _totalRewards.add(r);
+        // }
+        // return _totalRewards;
+        return calculateRewardFor(_stakeholder,_stakedID);
+    }
+
+    /**
+     * @dev A method to inquiry the punishment from the early unstaking of the specific stake of the stakeholder.
+     * @param _stakeholder The stakeholder to get the punishment for early unstake.
+     * @param _stakedID The stake id.
+     * @return uint256 The punishment of the early unstaking of the stake.
+     */
+    function punishmentOf(address _stakeholder,  uint256 _stakedID)
+        public
+        view
+        returns(uint256)
+    {
+        require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
+        // uint256 _totalPunishments = 0;
+        // for (uint256 i = 0; i < stakeholders[_stakeholder].stakes.length; i++){
+        //     Stake storage s = stakeholders[_stakeholder].stakes[i];
+        //     uint256 r = _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+        //     _totalPunishments = _totalPunishments.add(r);
+        // }
+        // return _totalPunishments;
+        return calculatePunishmentFor(_stakeholder,_stakedID);
     }
 
     /** 
-     * @dev A simple method that calculates the rewards for each stakeholder.
+     * @dev A simple method to calculate the rewards for a specific stake of a stakeholder.
      * The rewards only is available after stakeholder unstakes the ARDs.
      * @param _stakeholder The stakeholder to calculate rewards for.
+     * @param _stakedID The stake id.
      * @return uint256 return the reward for the stake with specific ID.
      */
     function calculateRewardFor(address _stakeholder, uint256 _stakedID)
-        public
+        internal
         view
         returns(uint256)
     {
@@ -3295,13 +3361,13 @@ contract StakingToken is ARDImplementationV1 {
                 break;
             }
         }
-        require(found,"stake not exist");
+        require(found,"invalid stake id");
         Stake storage s = stakeholders[_stakeholder].stakes[stakeIndex];
         return _calculateReward(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
     }
 
     /** 
-     * @dev A simple method that calculates the rewards for stakeholder from a given priod which is set by _from and _to.
+     * @dev A simple method to calculates the reward for stakeholder from a given period which is set by _from and _to.
      * @param _from The start date of the period.
      * @param _to The end date of the period.
      * @param _value Amount of staking.
@@ -3320,8 +3386,34 @@ contract StakingToken is ARDImplementationV1 {
         return _calculateTotal(rewardTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
+   /** 
+     * @dev A simple method to calculate punishment for early unstaking of a specific stake of the stakeholder.
+     * The punishment is only charges after stakeholder unstakes the ARDs.
+     * @param _stakeholder The stakeholder to calculate punishment for.
+     * @param _stakedID The stake id.
+     * @return uint256 return the punishment for the stake with specific ID.
+     */
+    function calculatePunishmentFor(address _stakeholder, uint256 _stakedID)
+        internal
+        view
+        returns(uint256)
+    {
+        require(stakeholders[_stakeholder].totalStaked>0,"not stake holder");
+        uint256 stakeIndex;
+        bool found = false;
+        for (stakeIndex = 0; stakeIndex < stakeholders[_stakeholder].stakes.length; stakeIndex += 1){
+            if (stakeholders[_stakeholder].stakes[stakeIndex].id == _stakedID) {
+                found = true;
+                break;
+            }
+        }
+        require(found,"invalid stake id");
+        Stake storage s = stakeholders[_stakeholder].stakes[stakeIndex];
+        return _calculatePunishment(s.stakedAt, block.timestamp, s.value, s.lockPeriod);
+    }
+
     /** 
-     * @dev A simple method that calculates the punishment for stakeholder from a given priod which is set by _from and _to.
+     * @dev A simple method that calculates the punishment for stakeholder from a given period which is set by _from and _to.
      * @param _from The start date of the period.
      * @param _to The end date of the period.
      * @param _value Amount of staking.
@@ -3341,7 +3433,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /** 
-     * @dev calculates the total amount of reward/punishment for a given priod which is set by _from and _to. This method calculates 
+     * @dev calculates the total amount of reward/punishment for a given period which is set by _from and _to. This method calculates 
      * based on the history of rate changes. So if in this period, three times rate have had changed, this function calculates for each
      * of the rates separately and returns total 
      * @param _history The history of rates
@@ -3374,7 +3466,7 @@ contract StakingToken is ARDImplementationV1 {
            Rate History:    (deployed)o(R0)----------------o(R1)-------------o(R2)-----------------o(R3)--------------------
            Given Period:                   o(from)--------------------------------------o(to)
            
-           Calculations:     ( 5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
+           Calculations:     ( 1.5%*(R1-from) + 5%*(R2-R1) + 2%*(to-R2) ) / Period
         */
         uint256 total = 0;
         uint256 totalDuration = 0;
@@ -3419,7 +3511,7 @@ contract StakingToken is ARDImplementationV1 {
     }
 
     /**
-    * @dev this function retriev last rate of a given rate history
+    * @dev this function retrieve last rate of a given rate history
     * @param _history the history of rate changes
     * @return uint256 the last rate which is current rate
      */
@@ -3431,17 +3523,6 @@ contract StakingToken is ARDImplementationV1 {
         return _history.rates[_history.rates.length-1].rate;
     }
 
-    /**
-    * @dev this function retriev last rate timestamp from a given rate history
-    * @param _history the history of rate changes
-    * @return uint256 the last rate timestamp which is the timestamp of current rate benn set
-     */
-    function _lastTimestamp(RateHistory storage _history)
-        internal
-        view
-        returns(uint256)
-    {
-        return _history.rates[_history.rates.length-1].timestamp;
-    }
-
+    // storage gap for adding new states in upgrades 
+    uint256[50] private __gap;
 }
