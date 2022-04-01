@@ -82,6 +82,25 @@ describe("Ownable ARD", function () {
       assert.equal(superAdmin, this.user2.address);
     });
 
+    it("only super admin can grant/revoke admin", async function () {
+      // no one can set admin role  except super admin
+      await expect(
+        this.token.connect(this.user1).setAdminRole(this.user2.address)
+      ).to.be.reverted;
+      // super admin cat grant admin role
+      await this.token.connect(this.owner).setAdminRole(this.user2.address);
+      let isAdmin = await this.token.isAdmin(this.user2.address);
+      assert.equal(isAdmin, true);
+      // no one can revoke admin role except super admin
+      await expect(
+        this.token.connect(this.user1).revokeAdminRole(this.user2.address)
+      ).to.be.reverted;
+      // transfer super admin by owner
+      await this.token.connect(this.owner).revokeAdminRole(this.user2.address);
+      isAdmin = await this.token.isAdmin(this.user2.address);
+      assert.equal(isAdmin, false);
+    });
+
     it("admin can grant and revoke any role", async function () {
       // user1 is not admin, so he can't assign any role
       await expect(

@@ -352,7 +352,7 @@ contract StakingToken is ARDImplementationV1 {
      * @param _stakeholder The stakeholder to retrieve the latest stake amount.
      */
     function latest(address _stakeholder) 
-        internal 
+        public 
         view 
         returns (uint256) 
     {

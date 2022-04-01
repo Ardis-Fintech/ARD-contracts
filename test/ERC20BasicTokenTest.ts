@@ -58,6 +58,46 @@ describe("ARD basic functionality", function () {
       const userBal = await this.token.balanceOf(this.user1.address);
       assert.equal(userBal, 500);
     });
+    it("only minter is allowed to mint token", async function () {
+      // other roles won't be able to mint tokens
+      await expect(
+        this.token.connect(this.burner).mint(this.user1.address, 500)
+      ).to.be.reverted;
+      await expect(
+        this.token.connect(this.user1).mint(this.user1.address, 500)
+      ).to.be.reverted;
+    });
+  });
+
+  describe("burn token", function () {
+    it("burn a few token for test account", async function () {
+      // first mint tokens
+      await this.token.connect(this.minter).mint(this.user1.address, 500);
+      // check supply
+      let totalSupply = await this.token.totalSupply();
+      assert.equal(totalSupply, 500);
+
+      // and burn them to test
+      await this.token.connect(this.burner).burn(this.user1.address, 500);
+      // check supply
+      totalSupply = await this.token.totalSupply();
+      assert.equal(totalSupply, 0);
+
+      // check user balance
+      const userBal = await this.token.balanceOf(this.user1.address);
+      assert.equal(userBal, 0);
+    });
+    it("only burner is allowed to burn token", async function () {
+      // first mint tokens
+      await this.token.connect(this.minter).mint(this.user1.address, 500);
+      // other roles won't be able to burn tokens
+      await expect(
+        this.token.connect(this.minter).burn(this.user1.address, 500)
+      ).to.be.reverted;
+      await expect(
+        this.token.connect(this.user1).burn(this.user1.address, 500)
+      ).to.be.reverted;
+    });
   });
 
   describe("balanceOf", function () {
