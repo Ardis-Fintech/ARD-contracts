@@ -46,6 +46,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /*****************************************************************
     ** MODIFIERS                                                    **
     ******************************************************************/
+    modifier onlySuperAdminRole() {
+        require(hasRole(SUPER_ADMIN_ROLE, _msgSender()), "only super admin role");
+        _;
+    }
+
     modifier onlyAssetProtectionRole() {
         require(hasRole(ASSET_PROTECTION_ROLE, _msgSender()), "only asset protection role");
         _;
@@ -238,7 +243,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      *
      * - The contract must not be paused.
      */
-    function pause() public onlyOwner {
+    function pause() public onlySuperAdminRole {
         _pause();
     }
 
@@ -249,7 +254,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      *
      * - The contract must be paused.
      */
-    function unpause() public onlyOwner {
+    function unpause() public onlySuperAdminRole {
         _unpause();
     }
 

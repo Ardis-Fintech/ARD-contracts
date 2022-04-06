@@ -11,8 +11,11 @@ import "@openzeppelin/test-helpers";
 
 // Go to https://www.alchemyapi.io, sign up, create
 // a new App in its dashboard, and replace "KEY" with its key
-const ALCHEMY_URL =
+const ROPSTEN_ALCHEMY_URL =
   "https://eth-ropsten.alchemyapi.io/v2/zSwzhXmsWGHnmd3HkkbIj_le_92xf1mm";
+
+const RINKEBY_ALCHEMY_URL =
+  "https://eth-rinkeby.alchemyapi.io/v2/qWaD_H_W1BLe_z4wQN6B9kAA1_P-Bty9";
 
 // Replace this private key with your Ropsten account private key
 // To export your private key from Metamask, open Metamask and
@@ -23,11 +26,14 @@ const ALCHEMY_URL =
 const ROPSTEN_PRIVATE_KEY =
   "9e1266931ce15d3fa1f533154bc6753a0adf9ff62e3e9b422107c47c06f50ad9";
 
+const RINKEBY_PRIVATE_KEY =
+  "9e1266931ce15d3fa1f533154bc6753a0adf9ff62e3e9b422107c47c06f50ad9";
+
 /*
 You can get some ETH for other testnets following these links:
   Ropsten https://faucet.ropsten.be/  
   Kovan   https://faucet.kovan.network/
-  Rinkeby https://faucet.rinkeby.io/
+  Rinkeby https://faucet.rinkeby.io/   and   https://faucets.chain.link/rinkeby
   Goerli  https://goerli-faucet.slock.it/
 */
 
@@ -61,11 +67,18 @@ const config: HardhatUserConfig = {
   },
   networks: {
     ropsten: {
-      url: process.env.ROPSTEN_URL || ALCHEMY_URL,
+      url: process.env.ROPSTEN_URL || ROPSTEN_ALCHEMY_URL,
       accounts:
         process.env.PRIVATE_KEY !== undefined
           ? [process.env.PRIVATE_KEY]
           : [`${ROPSTEN_PRIVATE_KEY}`],
+    },
+    rinkeby: {
+      url: process.env.RINKEBY_URL || RINKEBY_ALCHEMY_URL,
+      accounts:
+        process.env.PRIVATE_KEY !== undefined
+          ? [process.env.PRIVATE_KEY]
+          : [`${RINKEBY_PRIVATE_KEY}`],
     },
   },
   gasReporter: {
