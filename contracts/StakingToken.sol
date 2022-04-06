@@ -367,6 +367,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
+        notPaused
         onlyActiveStaking
         returns(uint256)
     {
@@ -412,6 +413,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
+        notPaused
         onlyActiveStaking
     {
         //_burn(_msgSender(), _stake);
@@ -579,6 +581,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setRewardTable(uint64[][] memory _rtbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
@@ -647,6 +650,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setPunishmentTable(uint64[][] memory _ptbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {

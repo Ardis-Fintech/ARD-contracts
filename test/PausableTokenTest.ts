@@ -90,6 +90,34 @@ describe("Pausable ARD", function () {
     ).to.be.reverted;
   });
 
+  it("cannot stake/unstake in pause", async function () {
+    await this.token.connect(this.owner).transfer(this.user1.address, amount);
+    // set new reward rate for 30 days lock
+    await this.token.setReward(30, 200);
+    // set new reward rate for 30 days lock
+    await this.token.setPunishment(30, 200);
+    // pause the token
+    await this.token.pause();
+    let isPaused = await this.token.paused();
+    assert.equal(isPaused, true);
+    // staking should failed
+    await expect(
+      this.token.connect(this.user1).stake(amount, 30)
+    ).to.be.reverted;
+    // unpause and stake for user1
+    await this.token.unpause();
+    isPaused = await this.token.paused();
+    assert.equal(isPaused, false);
+    await this.token.connect(this.user1).stake(amount, 30);
+    const userCurStaked = await this.token.stakeOf(this.user1.address);
+    assert.equal(userCurStaked, amount);
+    // pause token again and test unstaking
+    await this.token.pause();
+    await expect(
+      this.token.connect(this.user1).unstake(1, amount)
+    ).to.be.reverted;
+  });
+
   it("should resume allowing normal process after pause is over", async function () {
     await this.token.pause();
     // unpause the contract and checks to emit a Unpause event
