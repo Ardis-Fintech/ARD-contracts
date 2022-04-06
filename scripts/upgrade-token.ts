@@ -8,7 +8,7 @@ Upgrade then involves the following steps:
   - Send a transaction to the proxy that updates its implementation address to the new one.
 */
 async function upgradeARDToken() {
-  const ARD = await ethers.getContractFactory("ARDImplementationV1");
+  const ARD = await ethers.getContractFactory("StakingToken");
   await upgrades.upgradeProxy(ARD_ADDRESS, ARD);
   console.log("ARD upgraded");
 }

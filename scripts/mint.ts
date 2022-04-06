@@ -8,7 +8,7 @@ Upgrade then involves the following steps:
   - Send a transaction to the proxy that updates its implementation address to the new one.
 */
 async function mintToken() {
-  const ARD = await ethers.getContractFactory("ARDImplementationV1");
+  const ARD = await ethers.getContractFactory("StakingToken");
   const ard = await ARD.attach(ARD_ADDRESS);
   console.log("ARD attached: ", ard.address);
   const owner = await ard.owner();
