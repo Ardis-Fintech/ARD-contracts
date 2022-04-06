@@ -26,7 +26,7 @@ describe("ARD Staking protocol", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingToken");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
+    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();
 
     await instance.setTokenBank(TOKEN_BANK_ADDRESS);

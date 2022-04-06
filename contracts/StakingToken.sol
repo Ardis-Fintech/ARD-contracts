@@ -127,8 +127,8 @@ contract StakingToken is ARDImplementationV1 {
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-    function initialize(string memory name_, string memory symbol_) public initializer{
-        _initialize(name_, symbol_);
+    function initialize(string memory name_, string memory symbol_, address newowner_) public initializer{
+        _initialize(name_, symbol_, newowner_);
         
         // contract can mint the rewards
         setMinterRole(address(this));
