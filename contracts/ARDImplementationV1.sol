@@ -150,27 +150,6 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _decimals = 8;
     }
 
-    // /**
-    //  * @dev Transfers ownership of the contract to a new account (`newOwner`).
-    //  * Can only be called by the current owner.
-    //  */
-    // function transferOwnership(address newOwner) public virtual override onlyOwner {
-    //     require(newOwner != address(0), "Ownable: new owner is the zero address");
-
-    //     _revokeRole(SUPER_ADMIN_ROLE, owner());
-    //     _transferOwnership(newOwner);
-
-    //     // Grant the new owner the default admin role: it will be able
-    //     // to grant and revoke any roles
-    //     _setupRole(SUPER_ADMIN_ROLE, newOwner);
-    //     _setupRole(ADMIN_ROLE, newOwner);
-    //     // Grant the contract deployer all other roles by default
-    //     _setupRole(MINTER_ROLE, newOwner);
-    //     _setupRole(BURNER_ROLE, newOwner);
-    //     _setupRole(ASSET_PROTECTION_ROLE, newOwner);
-    //     _setupRole(SUPPLY_CONTROLLER_ROLE, newOwner);
-    // }
-
     /**
     The number of decimals
     */

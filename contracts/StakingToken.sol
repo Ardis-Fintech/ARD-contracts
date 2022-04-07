@@ -131,16 +131,16 @@ contract StakingToken is ARDImplementationV1 {
         _initialize(name_, symbol_, newowner_);
         
         // contract can mint the rewards
-        setMinterRole(address(this));
+        _setupRole(MINTER_ROLE, address(this));
 
         // set last stake id
         _lastStakeID = 0;
 
         //enable staking by default
-        enableStakingProtocol(true);
+        stakingEnabled=true;
 
         //enable early unstaking
-        enableEarlyUnstaking(true);
+        earlyUnstakingAllowed=true;
     }
 
     /**

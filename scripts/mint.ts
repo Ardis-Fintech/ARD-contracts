@@ -1,6 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 
-const ARD_ADDRESS = "0xfABBFfE09944C0E5288d835d7fA860628F47F62C";
+const ARD_ADDRESS = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
 
 /*
 Upgrade then involves the following steps:
