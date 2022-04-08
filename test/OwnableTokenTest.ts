@@ -52,10 +52,36 @@ describe("Ownable ARD", function () {
 
     it("should prevent non-owners from transferring ownership", async function () {
       const currentOwner = await this.token.owner();
-      assert.notStrictEqual(currentOwner, this.user1.address2);
+      assert.notStrictEqual(currentOwner, this.user1.address);
       await expect(
         this.token.connect(this.user1).transferOwnership(this.user2.address)
       ).to.be.reverted;
+    });
+
+    it("transfer ownership and roles", async function () {
+      let currentOwner = await this.token.owner();
+      assert.notStrictEqual(currentOwner, this.user1.address);
+      await this.token.transferOwnershipAndRoles(this.user1.address);
+      currentOwner = await this.token.owner();
+      assert.equal(currentOwner, this.user1.address);
+      // former owner doesn't have any roles after transfer ownership
+      let isMinter = await this.token.isMinter(this.owner.address);
+      assert.equal(isMinter, false);
+      let isBurner = await this.token.isBurner(this.owner.address);
+      assert.equal(isBurner, false);
+      let isAssetProtection = await this.token.isAssetProtection(this.owner.address);
+      assert.equal(isAssetProtection, false);
+      let isSupplyController = await this.token.isSupplyController(this.owner.address);
+      assert.equal(isSupplyController, false);
+      // new owner has all roles
+      isMinter = await this.token.isMinter(this.user1.address);
+      assert.equal(isMinter, true);
+      isBurner = await this.token.isBurner(this.user1.address);
+      assert.equal(isBurner, true);
+      isAssetProtection = await this.token.isAssetProtection(this.user1.address);
+      assert.equal(isAssetProtection, true);
+      isSupplyController = await this.token.isSupplyController(this.user1.address);
+      assert.equal(isSupplyController, true);
     });
   });
 

@@ -487,7 +487,6 @@ contract StakingToken is ARDImplementationV1 {
      */
     function removeStakeRecord(address _stakeholder, uint index) 
         internal 
-        onlyActiveStaking
     {
         for(uint i = index; i < stakeholders[_stakeholder].stakes.length-1; i++){
             stakeholders[_stakeholder].stakes[i] = stakeholders[_stakeholder].stakes[i+1];      
