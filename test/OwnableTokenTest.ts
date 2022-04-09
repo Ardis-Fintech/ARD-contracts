@@ -10,7 +10,7 @@ describe("Ownable ARD", function () {
       await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
-    const ARD = await ethers.getContractFactory("StakingToken");
+    const ARD = await ethers.getContractFactory("StakingTokenV1");
     const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");

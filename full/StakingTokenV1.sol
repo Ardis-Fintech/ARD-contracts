@@ -1727,7 +1727,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
     function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
-            emit (role, account, _msgSender());
+            emit RoleGranted(role, account, _msgSender());
         }
     }
 
@@ -1746,7 +1746,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
 }
 
 
-// File contracts/ARDImplementation.sol
+// File contracts/v1/ARDImplementationV1.sol
 
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.2;
@@ -1770,7 +1770,7 @@ pragma experimental ABIEncoderV2;
  * Any call to transfer against this contract should fail
  * with insufficient funds since no tokens will be issued there.
  */
-contract ARDImplementation is ERC20Upgradeable, 
+contract ARDImplementationV1 is ERC20Upgradeable, 
                                 OwnableUpgradeable, 
                                 AccessControlUpgradeable,
                                 PausableUpgradeable, 
@@ -1794,6 +1794,11 @@ contract ARDImplementation is ERC20Upgradeable,
     /*****************************************************************
     ** MODIFIERS                                                    **
     ******************************************************************/
+    modifier onlySuperAdminRole() {
+        require(hasRole(SUPER_ADMIN_ROLE, _msgSender()), "only super admin role");
+        _;
+    }
+
     modifier onlyAssetProtectionRole() {
         require(hasRole(ASSET_PROTECTION_ROLE, _msgSender()), "only asset protection role");
         _;
@@ -1858,13 +1863,16 @@ contract ARDImplementation is ERC20Upgradeable,
      * memory model of the Implementation contract.
      */
     //uint256 private _totalSupply;
-    function _initialize(string memory name_, string memory symbol_) internal {
+    function _initialize(string memory name_, string memory symbol_, address newowner_) internal {
         __Ownable_init();
         __ERC20_init(name_, symbol_);
 
+        // it lets deployer set other address as owner rather than sender. It helps to make contract owned by multisig wallet 
+        address owner_ =  newowner_==address(0) ?  _msgSender() : newowner_;
+        
         //set super admin role for manage admins
         _setRoleAdmin(SUPER_ADMIN_ROLE, SUPER_ADMIN_ROLE);
-        _curSuperadmin = _msgSender();
+        _curSuperadmin = owner_;
         //set default admin role for all roles
         _setRoleAdmin(ADMIN_ROLE, SUPER_ADMIN_ROLE);
         //setup other roles
@@ -1873,16 +1881,15 @@ contract ARDImplementation is ERC20Upgradeable,
         _setRoleAdmin(ASSET_PROTECTION_ROLE, ADMIN_ROLE);
         _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, ADMIN_ROLE);
 
-        // Grant the contract deployer the default admin role: it will be able
-        // to grant and revoke any roles
-        _setupRole(SUPER_ADMIN_ROLE, _msgSender());
-        _setupRole(ADMIN_ROLE, _msgSender());
+        // Grant the contract deployer the default super admin role
+        // super admin is able to grant and revoke admin roles
+        _setupRole(SUPER_ADMIN_ROLE, owner_);
         // Grant the contract deployer all other roles by default
-        _setupRole(MINTER_ROLE, _msgSender());
-        _setupRole(BURNER_ROLE, _msgSender());
-        _setupRole(ASSET_PROTECTION_ROLE, _msgSender());
-        _setupRole(SUPPLY_CONTROLLER_ROLE, _msgSender());
+        _grantAllRoles(owner_);
 
+        if (owner_!=_msgSender()) {
+            _transferOwnership(owner_);
+        }
         // set the number of decimals to 8
         _decimals = 8;
     }
@@ -1894,6 +1901,29 @@ contract ARDImplementation is ERC20Upgradeable,
         return _decimals;
     }
 
+    /**
+    The protocol implementation version
+    */
+    function protocolVersion() public pure returns (bytes32) {
+        return "1.0";
+    }
+    ///////////////////////////////////////////////////////////////////////
+    // OWNERSHIP                                                         //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * it transfers all the roles as well
+     * Can only be called by the current owner.
+     */
+    function transferOwnershipAndRoles(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _revokeAllRoles(owner());
+        _grantAllRoles(newOwner);
+        if (_curSuperadmin==owner()) {
+            transferSupeAdminTo(newOwner);
+        }
+        _transferOwnership(newOwner);
+    }
     ///////////////////////////////////////////////////////////////////////
     // BEFORE/AFTER TOKEN TRANSFER                                       //
     ///////////////////////////////////////////////////////////////////////
@@ -1986,7 +2016,7 @@ contract ARDImplementation is ERC20Upgradeable,
      *
      * - The contract must not be paused.
      */
-    function pause() public onlyOwner {
+    function pause() public onlySuperAdminRole {
         _pause();
     }
 
@@ -1997,7 +2027,7 @@ contract ARDImplementation is ERC20Upgradeable,
      *
      * - The contract must be paused.
      */
-    function unpause() public onlyOwner {
+    function unpause() public onlySuperAdminRole {
         _unpause();
     }
 
@@ -2023,6 +2053,25 @@ contract ARDImplementation is ERC20Upgradeable,
     }
 
     /**
+     * @dev Grants all roles to `account`.
+     *
+     *
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
+     */
+    function _grantAllRoles(address account) internal {
+        require(account!=address(0),"zero account");
+        _grantRole(ADMIN_ROLE, account);
+        _grantRole(MINTER_ROLE, account);
+        _grantRole(BURNER_ROLE, account);
+        _grantRole(ASSET_PROTECTION_ROLE, account);
+        _grantRole(SUPPLY_CONTROLLER_ROLE, account);
+    }
+
+    /**
      * @dev Revokes `role` from `account`.
      *
      * Requirements:
@@ -2035,6 +2084,24 @@ contract ARDImplementation is ERC20Upgradeable,
         require(account!=address(0),"zero account");
         require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _revokeRole(role, account);
+    }
+
+    /**
+     * @dev Revokes all roles from `account`.
+     *
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
+     */
+    function _revokeAllRoles(address account) internal {
+        require(account!=address(0),"zero account");
+        _revokeRole(ADMIN_ROLE, account);
+        _revokeRole(MINTER_ROLE, account);
+        _revokeRole(BURNER_ROLE, account);
+        _revokeRole(ASSET_PROTECTION_ROLE, account);
+        _revokeRole(SUPPLY_CONTROLLER_ROLE, account);
     }
 
     /**
@@ -2611,7 +2678,7 @@ library Checkpoints {
 }
 
 
-// File contracts/StakingToken.sol
+// File contracts/v1/StakingTokenV1.sol
 
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.2;
@@ -2625,7 +2692,7 @@ pragma experimental ABIEncoderV2;
  * @author Gheis Mohammadi
  * @dev Implements a staking Protocol using ARD token.
  */
-contract StakingToken is ARDImplementation {
+contract StakingTokenV1 is ARDImplementationV1 {
     using SafeMath for uint256;
     using SafeMath for uint64;
 
@@ -2741,20 +2808,20 @@ contract StakingToken is ARDImplementation {
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-    function initialize(string memory name_, string memory symbol_) public initializer{
-        _initialize(name_, symbol_);
+    function initialize(string memory name_, string memory symbol_, address newowner_) public initializer{
+        _initialize(name_, symbol_, newowner_);
         
         // contract can mint the rewards
-        setMinterRole(address(this));
+        _setupRole(MINTER_ROLE, address(this));
 
         // set last stake id
         _lastStakeID = 0;
 
         //enable staking by default
-        enableStakingProtocol(true);
+        stakingEnabled=true;
 
         //enable early unstaking
-        enableEarlyUnstaking(true);
+        earlyUnstakingAllowed=true;
     }
 
     /**
@@ -2966,7 +3033,7 @@ contract StakingToken is ARDImplementation {
      * @param _stakeholder The stakeholder to retrieve the latest stake amount.
      */
     function latest(address _stakeholder) 
-        internal 
+        public 
         view 
         returns (uint256) 
     {
@@ -2981,6 +3048,7 @@ contract StakingToken is ARDImplementation {
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
+        notPaused
         onlyActiveStaking
         returns(uint256)
     {
@@ -3026,6 +3094,7 @@ contract StakingToken is ARDImplementation {
      */
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
+        notPaused
         onlyActiveStaking
     {
         //_burn(_msgSender(), _stake);
@@ -3099,7 +3168,6 @@ contract StakingToken is ARDImplementation {
      */
     function removeStakeRecord(address _stakeholder, uint index) 
         internal 
-        onlyActiveStaking
     {
         for(uint i = index; i < stakeholders[_stakeholder].stakes.length-1; i++){
             stakeholders[_stakeholder].stakes[i] = stakeholders[_stakeholder].stakes[i+1];      
@@ -3193,6 +3261,7 @@ contract StakingToken is ARDImplementation {
     */
     function setRewardTable(uint64[][] memory _rtbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
@@ -3261,6 +3330,7 @@ contract StakingToken is ARDImplementation {
     */
     function setPunishmentTable(uint64[][] memory _ptbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {

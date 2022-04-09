@@ -188,61 +188,61 @@
             "src": "contracts/ARDImplementationV1.sol:493"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "tokenBank",
             "type": "t_address",
             "src": "contracts/StakingToken.sol:48"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "stakingEnabled",
             "type": "t_bool",
             "src": "contracts/StakingToken.sol:53"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "earlyUnstakingAllowed",
             "type": "t_bool",
             "src": "contracts/StakingToken.sol:58"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "minStake",
             "type": "t_uint256",
             "src": "contracts/StakingToken.sol:63"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "_lastStakeID",
             "type": "t_uint256",
             "src": "contracts/StakingToken.sol:68"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "totalStakedHistory",
             "type": "t_struct(History)2021_storage",
             "src": "contracts/StakingToken.sol:73"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "stakeholders",
             "type": "t_mapping(t_address,t_struct(StakeHolder)4039_storage)",
             "src": "contracts/StakingToken.sol:78"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "rewardTable",
             "type": "t_mapping(t_uint256,t_struct(RateHistory)4049_storage)",
             "src": "contracts/StakingToken.sol:83"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "punishmentTable",
             "type": "t_mapping(t_uint256,t_struct(RateHistory)4049_storage)",
             "src": "contracts/StakingToken.sol:87"
           },
           {
-            "contract": "StakingToken",
+            "contract": "StakingTokenV1",
             "label": "__gap",
             "type": "t_array(t_uint256)50_storage",
             "src": "contracts/StakingToken.sol:917"

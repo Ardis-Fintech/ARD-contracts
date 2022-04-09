@@ -9,7 +9,7 @@ This will deploy the below contracts:
   - transfer the ownership 
 */
 async function createARDToken() {
-  const ARD = await ethers.getContractFactory("StakingToken");
+  const ARD = await ethers.getContractFactory("StakingTokenV1");
   // deploy and transfer ownership to multisig GNOSIS wallet
   const ard = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", gnosis_multisig_wallet_address], {
     initializer: "initialize",
@@ -18,6 +18,9 @@ async function createARDToken() {
   console.log("ARD deployed to:", ard.address);
   const owner = await ard.owner();
   console.log("owner: ", owner);
+  const transfer_proxy_owner_res = await upgrades.admin.transferProxyAdminOwnership(gnosis_multisig_wallet_address);
+  console.log("Proxy ownership transfer res:", transfer_proxy_owner_res);
+  console.log("Proxy ownership transferred to:", gnosis_multisig_wallet_address);
 }
 
 createARDToken().catch((error) => {

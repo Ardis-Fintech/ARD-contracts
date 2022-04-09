@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { parseBytes32String } from "ethers/lib/utils";
 import { ethers, upgrades } from "hardhat";
 
 describe("ERC20 Deployment:", function () {
@@ -6,9 +7,14 @@ describe("ERC20 Deployment:", function () {
     const [owner] = await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
-    const ARD = await ethers.getContractFactory("StakingToken");
+    const ARD = await ethers.getContractFactory("StakingTokenV1");
     const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();
+
+    // check version
+    const protocolVersion = await instance.protocolVersion();
+    const verStr = parseBytes32String(protocolVersion);
+    expect(verStr).to.equal("1.0");
 
     // const admin = await upgrades.admin.getInstance();
     // console.log(admin.address);
@@ -34,8 +40,8 @@ describe("Upgradeability:", function () {
     const [owner] = await ethers.getSigners();
     console.log("owner: ", owner.address);
 
-    const ARD1 = await ethers.getContractFactory("StakingToken");
-    const ARD2 = await ethers.getContractFactory("StakingToken");
+    const ARD1 = await ethers.getContractFactory("StakingTokenV1");
+    const ARD2 = await ethers.getContractFactory("StakingTokenV1");
 
     const instance = await upgrades.deployProxy(ARD1, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();

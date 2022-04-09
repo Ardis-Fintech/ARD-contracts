@@ -1746,7 +1746,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
 }
 
 
-// File contracts/ARDImplementationV1.sol
+// File contracts/ARDImplementation.sol
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
@@ -1759,7 +1759,7 @@ pragma experimental ABIEncoderV2;
 
 
 /**
- * @title ARDImplementationV1
+ * @title ARDImplementation
  * @dev this contract is a Pausable ERC20 token with Burn and Mint
  * controlled by a SupplyController. By implementing ARDImplementation
  * this contract also includes external methods for setting
@@ -1770,7 +1770,7 @@ pragma experimental ABIEncoderV2;
  * Any call to transfer against this contract should fail
  * with insufficient funds since no tokens will be issued there.
  */
-contract ARDImplementationV1 is ERC20Upgradeable, 
+contract ARDImplementation is ERC20Upgradeable, 
                                 OwnableUpgradeable, 
                                 AccessControlUpgradeable,
                                 PausableUpgradeable, 

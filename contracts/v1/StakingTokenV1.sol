@@ -2,7 +2,7 @@
 pragma solidity 0.8.2;
 pragma experimental ABIEncoderV2;
 
-import "contracts/ARDImplementationV1.sol";
+import "contracts/v1/ARDImplementationV1.sol";
 import "@openzeppelin/contracts/utils/Checkpoints.sol";
 //import "hardhat/console.sol";
 
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/Checkpoints.sol";
  * @author Gheis Mohammadi
  * @dev Implements a staking Protocol using ARD token.
  */
-contract StakingToken is ARDImplementationV1 {
+contract StakingTokenV1 is ARDImplementationV1 {
     using SafeMath for uint256;
     using SafeMath for uint64;
 

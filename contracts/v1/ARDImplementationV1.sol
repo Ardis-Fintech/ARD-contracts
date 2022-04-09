@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 /**
- * @title ARDImplementationV1
+ * @title ARDImplementation
  * @dev this contract is a Pausable ERC20 token with Burn and Mint
  * controlled by a SupplyController. By implementing ARDImplementation
  * this contract also includes external methods for setting
@@ -156,7 +156,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /**
     The protocol implementation version
     */
-    function protocolVersion() public pure returns (bytes) {
+    function protocolVersion() public pure returns (bytes32) {
         return "1.0";
     }
     ///////////////////////////////////////////////////////////////////////

@@ -9,7 +9,7 @@ This will deploy the below contracts:
 */
 async function createARDUpgradeTransaction() {
   const [owner] = await ethers.getSigners();
-  const ARD = await ethers.getContractFactory("StakingToken");
+  const ARD = await ethers.getContractFactory("StakingTokenV1");
 //   const ard = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address], {
 //     initializer: "initialize",
 //   });

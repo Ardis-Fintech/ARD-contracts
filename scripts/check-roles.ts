@@ -11,7 +11,7 @@ Upgrade then involves the following steps:
 // run script:
 // npx hardhat run --network rinkeby scripts/check-roles.ts
 async function checkRoles() {
-  const ARD = await ethers.getContractFactory("StakingToken");
+  const ARD = await ethers.getContractFactory("StakingTokenV1");
   const ard = await ARD.attach(ARD_ADDRESS);
   console.log("ARD attached: ", ard.address);
   const owner = await ard.owner();
