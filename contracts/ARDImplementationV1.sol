@@ -153,6 +153,12 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         return _decimals;
     }
 
+    /**
+    The protocol implementation version
+    */
+    function protocolVersion() public pure returns (bytes) {
+        return "1.0";
+    }
     ///////////////////////////////////////////////////////////////////////
     // OWNERSHIP                                                         //
     ///////////////////////////////////////////////////////////////////////
