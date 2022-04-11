@@ -8,8 +8,8 @@ describe("Pausable ARD", function () {
       await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
-    const ARD = await ethers.getContractFactory("StakingToken");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
+    const ARD = await ethers.getContractFactory("StakingTokenV1");
+    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");
 
@@ -87,6 +87,34 @@ describe("Pausable ARD", function () {
       this.token
         .connect(this.user2)
         .transferFrom(this.owner.address, this.user2.address, amount)
+    ).to.be.reverted;
+  });
+
+  it("cannot stake/unstake in pause", async function () {
+    await this.token.connect(this.owner).transfer(this.user1.address, amount);
+    // set new reward rate for 30 days lock
+    await this.token.setReward(30, 200);
+    // set new reward rate for 30 days lock
+    await this.token.setPunishment(30, 200);
+    // pause the token
+    await this.token.pause();
+    let isPaused = await this.token.paused();
+    assert.equal(isPaused, true);
+    // staking should failed
+    await expect(
+      this.token.connect(this.user1).stake(amount, 30)
+    ).to.be.reverted;
+    // unpause and stake for user1
+    await this.token.unpause();
+    isPaused = await this.token.paused();
+    assert.equal(isPaused, false);
+    await this.token.connect(this.user1).stake(amount, 30);
+    const userCurStaked = await this.token.stakeOf(this.user1.address);
+    assert.equal(userCurStaked, amount);
+    // pause token again and test unstaking
+    await this.token.pause();
+    await expect(
+      this.token.connect(this.user1).unstake(1, amount)
     ).to.be.reverted;
   });
 

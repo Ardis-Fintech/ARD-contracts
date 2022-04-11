@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 /**
- * @title ARDImplementationV1
+ * @title ARDImplementation
  * @dev this contract is a Pausable ERC20 token with Burn and Mint
  * controlled by a SupplyController. By implementing ARDImplementation
  * this contract also includes external methods for setting
@@ -46,6 +46,11 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     /*****************************************************************
     ** MODIFIERS                                                    **
     ******************************************************************/
+    modifier onlySuperAdminRole() {
+        require(hasRole(SUPER_ADMIN_ROLE, _msgSender()), "only super admin role");
+        _;
+    }
+
     modifier onlyAssetProtectionRole() {
         require(hasRole(ASSET_PROTECTION_ROLE, _msgSender()), "only asset protection role");
         _;
@@ -110,13 +115,16 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      * memory model of the Implementation contract.
      */
     //uint256 private _totalSupply;
-    function _initialize(string memory name_, string memory symbol_) internal {
+    function _initialize(string memory name_, string memory symbol_, address newowner_) internal {
         __Ownable_init();
         __ERC20_init(name_, symbol_);
 
+        // it lets deployer set other address as owner rather than sender. It helps to make contract owned by multisig wallet 
+        address owner_ =  newowner_==address(0) ?  _msgSender() : newowner_;
+        
         //set super admin role for manage admins
         _setRoleAdmin(SUPER_ADMIN_ROLE, SUPER_ADMIN_ROLE);
-        _curSuperadmin = _msgSender();
+        _curSuperadmin = owner_;
         //set default admin role for all roles
         _setRoleAdmin(ADMIN_ROLE, SUPER_ADMIN_ROLE);
         //setup other roles
@@ -125,16 +133,15 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         _setRoleAdmin(ASSET_PROTECTION_ROLE, ADMIN_ROLE);
         _setRoleAdmin(SUPPLY_CONTROLLER_ROLE, ADMIN_ROLE);
 
-        // Grant the contract deployer the default admin role: it will be able
-        // to grant and revoke any roles
-        _setupRole(SUPER_ADMIN_ROLE, _msgSender());
-        _setupRole(ADMIN_ROLE, _msgSender());
+        // Grant the contract deployer the default super admin role
+        // super admin is able to grant and revoke admin roles
+        _setupRole(SUPER_ADMIN_ROLE, owner_);
         // Grant the contract deployer all other roles by default
-        _setupRole(MINTER_ROLE, _msgSender());
-        _setupRole(BURNER_ROLE, _msgSender());
-        _setupRole(ASSET_PROTECTION_ROLE, _msgSender());
-        _setupRole(SUPPLY_CONTROLLER_ROLE, _msgSender());
+        _grantAllRoles(owner_);
 
+        if (owner_!=_msgSender()) {
+            _transferOwnership(owner_);
+        }
         // set the number of decimals to 8
         _decimals = 8;
     }
@@ -146,6 +153,29 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         return _decimals;
     }
 
+    /**
+    The protocol implementation version
+    */
+    function protocolVersion() public pure returns (bytes32) {
+        return "1.0";
+    }
+    ///////////////////////////////////////////////////////////////////////
+    // OWNERSHIP                                                         //
+    ///////////////////////////////////////////////////////////////////////
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * it transfers all the roles as well
+     * Can only be called by the current owner.
+     */
+    function transferOwnershipAndRoles(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _revokeAllRoles(owner());
+        _grantAllRoles(newOwner);
+        if (_curSuperadmin==owner()) {
+            transferSupeAdminTo(newOwner);
+        }
+        _transferOwnership(newOwner);
+    }
     ///////////////////////////////////////////////////////////////////////
     // BEFORE/AFTER TOKEN TRANSFER                                       //
     ///////////////////////////////////////////////////////////////////////
@@ -238,7 +268,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      *
      * - The contract must not be paused.
      */
-    function pause() public onlyOwner {
+    function pause() public onlySuperAdminRole {
         _pause();
     }
 
@@ -249,7 +279,7 @@ contract ARDImplementationV1 is ERC20Upgradeable,
      *
      * - The contract must be paused.
      */
-    function unpause() public onlyOwner {
+    function unpause() public onlySuperAdminRole {
         _unpause();
     }
 
@@ -275,6 +305,25 @@ contract ARDImplementationV1 is ERC20Upgradeable,
     }
 
     /**
+     * @dev Grants all roles to `account`.
+     *
+     *
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
+     */
+    function _grantAllRoles(address account) internal {
+        require(account!=address(0),"zero account");
+        _grantRole(ADMIN_ROLE, account);
+        _grantRole(MINTER_ROLE, account);
+        _grantRole(BURNER_ROLE, account);
+        _grantRole(ASSET_PROTECTION_ROLE, account);
+        _grantRole(SUPPLY_CONTROLLER_ROLE, account);
+    }
+
+    /**
      * @dev Revokes `role` from `account`.
      *
      * Requirements:
@@ -287,6 +336,24 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         require(account!=address(0),"zero account");
         require(role!=SUPER_ADMIN_ROLE,"invalid role");
         _revokeRole(role, account);
+    }
+
+    /**
+     * @dev Revokes all roles from `account`.
+     *
+     * Requirements:
+     *
+     * - the caller must have ``role``'s admin role.
+     * - contract not to be paused
+     * - account can't be zero address 
+     */
+    function _revokeAllRoles(address account) internal {
+        require(account!=address(0),"zero account");
+        _revokeRole(ADMIN_ROLE, account);
+        _revokeRole(MINTER_ROLE, account);
+        _revokeRole(BURNER_ROLE, account);
+        _revokeRole(ASSET_PROTECTION_ROLE, account);
+        _revokeRole(SUPPLY_CONTROLLER_ROLE, account);
     }
 
     /**

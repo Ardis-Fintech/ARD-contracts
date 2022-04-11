@@ -9,8 +9,8 @@ describe("ARD basic functionality", function () {
     const [owner, minter, burner, user1, user2] = await ethers.getSigners();
     // console.log("owner: ", owner.address);
 
-    const ARD = await ethers.getContractFactory("StakingToken");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD"]);
+    const ARD = await ethers.getContractFactory("StakingTokenV1");
+    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");
 

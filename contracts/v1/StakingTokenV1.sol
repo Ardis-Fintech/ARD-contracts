@@ -2,7 +2,7 @@
 pragma solidity 0.8.2;
 pragma experimental ABIEncoderV2;
 
-import "contracts/ARDImplementationV1.sol";
+import "contracts/v1/ARDImplementationV1.sol";
 import "@openzeppelin/contracts/utils/Checkpoints.sol";
 //import "hardhat/console.sol";
 
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/Checkpoints.sol";
  * @author Gheis Mohammadi
  * @dev Implements a staking Protocol using ARD token.
  */
-contract StakingToken is ARDImplementationV1 {
+contract StakingTokenV1 is ARDImplementationV1 {
     using SafeMath for uint256;
     using SafeMath for uint64;
 
@@ -127,20 +127,20 @@ contract StakingToken is ARDImplementationV1 {
      * this serves as the constructor for the proxy but compiles to the
      * memory model of the Implementation contract.
      */
-    function initialize(string memory name_, string memory symbol_) public initializer{
-        _initialize(name_, symbol_);
+    function initialize(string memory name_, string memory symbol_, address newowner_) public initializer{
+        _initialize(name_, symbol_, newowner_);
         
         // contract can mint the rewards
-        setMinterRole(address(this));
+        _setupRole(MINTER_ROLE, address(this));
 
         // set last stake id
         _lastStakeID = 0;
 
         //enable staking by default
-        enableStakingProtocol(true);
+        stakingEnabled=true;
 
         //enable early unstaking
-        enableEarlyUnstaking(true);
+        earlyUnstakingAllowed=true;
     }
 
     /**
@@ -367,6 +367,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _stake(address _stakeholder, uint256 _value, uint64 _lockPeriod) 
         internal
+        notPaused
         onlyActiveStaking
         returns(uint256)
     {
@@ -412,6 +413,7 @@ contract StakingToken is ARDImplementationV1 {
      */
     function _unstake(address _stakeholder, uint256 _stakedID, uint256 _value) 
         internal 
+        notPaused
         onlyActiveStaking
     {
         //_burn(_msgSender(), _stake);
@@ -485,7 +487,6 @@ contract StakingToken is ARDImplementationV1 {
      */
     function removeStakeRecord(address _stakeholder, uint index) 
         internal 
-        onlyActiveStaking
     {
         for(uint i = index; i < stakeholders[_stakeholder].stakes.length-1; i++){
             stakeholders[_stakeholder].stakes[i] = stakeholders[_stakeholder].stakes[i+1];      
@@ -579,6 +580,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setRewardTable(uint64[][] memory _rtbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
@@ -647,6 +649,7 @@ contract StakingToken is ARDImplementationV1 {
     */
     function setPunishmentTable(uint64[][] memory _ptbl)
         public
+        notPaused
         onlySupplyController
     {
         for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {
@@ -814,8 +817,12 @@ contract StakingToken is ARDImplementationV1 {
         require (_to>=_from,"invalid stake time");
         uint256 durationDays = _to.sub(_from).div(1 days);
         if (durationDays>=_lockPeriod) return 0;
-
-        return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
+        // retrieve latest punishment rate for the lock period
+        uint256 pos = punishmentTable[_lockPeriod].rates.length;
+        require (pos>0, "invalid lock period");
+        
+        return _value.mul(punishmentTable[_lockPeriod].rates[pos-1].rate).div(10000); 
+        //return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
     /** 
@@ -874,7 +881,7 @@ contract StakingToken is ARDImplementationV1 {
                 diff = diff.sub(totalDuration.sub(maxTotalDuration));
                 totalDuration = maxTotalDuration;
             }
-            total = total.add(_history.rates[rIndex-1].rate * diff);
+            total = total.add(_history.rates[rIndex-1].rate.mul(diff));
         }
         return _value.mul(total).div(_lockPeriod.mul(10000));
     }
