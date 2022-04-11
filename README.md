@@ -1,4 +1,4 @@
-# [![ard](/assets/ARD.png)](https://github.com/Ardis-Fintech/ARD-contracts) bdc
+# [![ard](/assets/ARD.png)](https://github.com/Ardis-Fintech/ARD-contracts)
 
 # ARD Staking Token
 The first carbon-negative cryptocurrency!
