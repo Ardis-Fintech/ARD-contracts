@@ -1,20 +1,30 @@
-# ARD Staking Token
+# [![ard](/assets/ARD.png)](https://github.com/Ardis-Fintech/ARD-contracts) bdc
 
-```compile
+# ARD Staking Token
+The first carbon-negative cryptocurrency!
+
+Backed 1:1 by solar parks, wind turbines, and everything renewable. Ardis enables anyone to help turn the tide against climate change, and the timing has never been more crucial.
+
+```compile the contracts
 npx hardhat compile
+```
 
 ```clean
 npx hardhat clean
+```
 
 ```test
 npx hardhat test
 REPORT_GAS=true npx hardhat test
+```
 
 ```coverage
 npx hardhat coverage
+```
 
 ```deploy
 npx hardhat run scripts/create-token.ts
+```
 
 
 # Etherscan verification
