@@ -3498,8 +3498,12 @@ contract StakingTokenV1 is ARDImplementationV1 {
         require (_to>=_from,"invalid stake time");
         uint256 durationDays = _to.sub(_from).div(1 days);
         if (durationDays>=_lockPeriod) return 0;
-
-        return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
+        // retrieve latest punishment rate for the lock period
+        uint256 pos = punishmentTable[_lockPeriod].rates.length;
+        require (pos>0, "invalid lock period");
+        
+        return _value.mul(punishmentTable[_lockPeriod].rates[pos-1].rate).div(10000); 
+        //return _calculateTotal(punishmentTable[_lockPeriod],_from,_to,_value,_lockPeriod);
     }
 
     /** 
@@ -3558,7 +3562,7 @@ contract StakingTokenV1 is ARDImplementationV1 {
                 diff = diff.sub(totalDuration.sub(maxTotalDuration));
                 totalDuration = maxTotalDuration;
             }
-            total = total.add(_history.rates[rIndex-1].rate * diff);
+            total = total.add(_history.rates[rIndex-1].rate.mul(diff));
         }
         return _value.mul(total).div(_lockPeriod.mul(10000));
     }
