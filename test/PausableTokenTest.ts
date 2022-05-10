@@ -1,6 +1,8 @@
 import { expect, assert } from "chai";
 import { ethers, upgrades } from "hardhat";
 
+const amount = 500000000;
+
 // Test that USDP operates correctly as a Pausable token.
 describe("Pausable ARD", function () {
   beforeEach(async function () {
@@ -9,9 +11,12 @@ describe("Pausable ARD", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingTokenV1");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");
+
+    await instance.enableStakingProtocol(true);
+    await instance.enableEarlyUnstaking(true);
 
     await instance.setMinterRole(minter.address);
     await instance.setBurnerRole(burner.address);
@@ -19,8 +24,8 @@ describe("Pausable ARD", function () {
     await instance.setAssetProtectionRole(protector.address);
     // console.log("roles assigned");
 
-    // min 100 tokens for owner
-    await instance.connect(minter).mint(owner.address, 100);
+    // min 500 tokens for owner
+    await instance.connect(minter).mint(owner.address, amount);
 
     this.token = instance;
     this.owner = owner;
@@ -32,14 +37,12 @@ describe("Pausable ARD", function () {
     this.user2 = user2;
   });
 
-  const amount = 10;
-
   it("can transfer in non-pause", async function () {
     const paused = await this.token.paused();
     assert.equal(paused, false);
     await this.token.transfer(this.user2.address, amount);
     const balance = await this.token.balanceOf(this.owner.address);
-    assert.equal(90, balance);
+    assert.equal(balance, 0);
   });
 
   it("cannot grant roles in pause", async function () {
@@ -74,7 +77,7 @@ describe("Pausable ARD", function () {
       this.token.connect(this.owner).transfer(this.user1.address, amount)
     ).to.be.reverted;
     const balance = await this.token.balanceOf(this.owner.address);
-    assert.equal(100, balance);
+    assert.equal(balance, amount);
   });
 
   it("cannot approve/transferFrom in pause", async function () {
@@ -126,7 +129,7 @@ describe("Pausable ARD", function () {
       .withArgs(this.owner.address);
     await this.token.transfer(this.user2.address, amount);
     const balance = await this.token.balanceOf(this.owner.address);
-    assert.equal(90, balance);
+    assert.equal(balance, 0);
   });
 
   it("cannot unpause when unpaused or pause when paused", async function () {

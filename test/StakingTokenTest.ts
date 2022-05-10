@@ -26,8 +26,11 @@ describe("ARD Staking protocol", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingTokenV1");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
+
+    await instance.enableStakingProtocol(true);
+    await instance.enableEarlyUnstaking(true);
 
     await instance.setTokenBank(TOKEN_BANK_ADDRESS);
     const tokenBank = await instance.getTokenBank();
@@ -390,7 +393,7 @@ describe("ARD Staking protocol", function () {
 
       // check rate history getter
       let rewardRateHistory = await this.token.rewardRateHistory(30);
-      assert.equal(rewardRateHistory.rates.length, 1);
+      assert.equal(rewardRateHistory.rates.length, 2);
 
       // move timestamp to 10 days later
       await timeTravel(10);
@@ -400,7 +403,7 @@ describe("ARD Staking protocol", function () {
 
       // check rate history length
       rewardRateHistory = await this.token.rewardRateHistory(30);
-      assert.equal(rewardRateHistory.rates.length, 2);
+      assert.equal(rewardRateHistory.rates.length, 3);
 
       // move timestamp again to 10 days later
       await timeTravel(10);
@@ -410,7 +413,7 @@ describe("ARD Staking protocol", function () {
 
       // check rate history length
       rewardRateHistory = await this.token.rewardRateHistory(30);
-      assert.equal(rewardRateHistory.rates.length, 3);
+      assert.equal(rewardRateHistory.rates.length, 4);
 
       // move timestamp again to 10 days later
       await timeTravel(10);
@@ -435,7 +438,7 @@ describe("ARD Staking protocol", function () {
 
       // check rate history getter
       let punishmentRateHistory = await this.token.punishmentRateHistory(30);
-      assert.equal(punishmentRateHistory.rates.length, 1);
+      assert.equal(punishmentRateHistory.rates.length, 2);
 
       // move timestamp to 10 days later
       await timeTravel(10);
@@ -445,7 +448,7 @@ describe("ARD Staking protocol", function () {
 
       // check rate history length
       punishmentRateHistory = await this.token.punishmentRateHistory(30);
-      assert.equal(punishmentRateHistory.rates.length, 2);
+      assert.equal(punishmentRateHistory.rates.length, 3);
 
       // move timestamp again to 10 days later
       await timeTravel(10);

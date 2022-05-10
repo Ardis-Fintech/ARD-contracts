@@ -8,7 +8,7 @@ describe("ERC20 Deployment:", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingTokenV1");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
 
     // check version
@@ -21,7 +21,7 @@ describe("ERC20 Deployment:", function () {
 
     // check token name
     const tokenName = await instance.name();
-    expect(tokenName).to.equal("ArdisToken");
+    expect(tokenName).to.equal("Ardis USD");
 
     // check token name
     const tokenSymbol = await instance.symbol();
@@ -43,7 +43,7 @@ describe("Upgradeability:", function () {
     const ARD1 = await ethers.getContractFactory("StakingTokenV1");
     const ARD2 = await ethers.getContractFactory("StakingTokenV1");
 
-    const instance = await upgrades.deployProxy(ARD1, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD1, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
     const upgraded = await upgrades.upgradeProxy(instance.address, ARD2);
     expect(upgraded.address).to.equal(instance.address);

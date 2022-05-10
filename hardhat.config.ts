@@ -9,6 +9,8 @@ import "solidity-coverage";
 import "@openzeppelin/hardhat-upgrades";
 import "@openzeppelin/test-helpers";
 
+dotenv.config({ path: __dirname+'/.env' });
+
 // Go to https://www.alchemyapi.io, sign up, create
 // a new App in its dashboard, and replace "KEY" with its key
 const ROPSTEN_ALCHEMY_URL =
@@ -16,6 +18,9 @@ const ROPSTEN_ALCHEMY_URL =
 
 const RINKEBY_ALCHEMY_URL =
   "https://eth-rinkeby.alchemyapi.io/v2/qWaD_H_W1BLe_z4wQN6B9kAA1_P-Bty9";
+
+const MAINNET_ALCHEMY_URL =
+  "https://eth-mainnet.alchemyapi.io/v2/W996Kg2ByAie8-wNvdluHQFIAADW73zR";
 
 // Replace this private key with your Ropsten account private key
 // To export your private key from Metamask, open Metamask and
@@ -28,6 +33,8 @@ const ROPSTEN_PRIVATE_KEY =
 
 const RINKEBY_PRIVATE_KEY =
   "9e1266931ce15d3fa1f533154bc6753a0adf9ff62e3e9b422107c47c06f50ad9";
+
+const MAINNET_PRIVATE_KEY = "";
 
 /*
 You can get some ETH for other testnets following these links:
@@ -47,7 +54,8 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   const accounts = await hre.ethers.getSigners();
 
   for (const account of accounts) {
-    console.log(account.address);
+    const bal = await account.getBalance();
+    console.log(account.address, " -> ", bal.toString(), "wei (1e-18 ETH) ");
   }
 });
 
@@ -66,6 +74,13 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    mainnet: {
+      url: process.env.MAINNET_URL || MAINNET_ALCHEMY_URL,
+      accounts:
+        process.env.MAINNET_PRIVATE_KEY !== undefined
+          ? [process.env.MAINNET_PRIVATE_KEY]
+          : [`${MAINNET_PRIVATE_KEY}`],
+    },
     ropsten: {
       url: process.env.ROPSTEN_URL || ROPSTEN_ALCHEMY_URL,
       accounts:

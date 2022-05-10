@@ -25,16 +25,19 @@ async function deployARDToken() {
   console.log("deploying upgradeable ARD...");
   const ard = await upgrades.deployProxy(
     ARD,
-    ["ArdisToken", "ARD", gnosisSafe],
+    ["Ardis USD", "ARD", gnosisSafe],
     {
       initializer: "initialize",
     }
   );
   await ard.deployed();
   console.log("ARD deployed to:", ard.address);
+
   // update config.json
   config.deployed = true;
   config.proxy = ard.address;
+  config.deployTransaction = ard.deployTransaction;
+
   writeFileSync(
     "scripts/mainnet/v1/config.json", 
     JSON.stringify(config, null, 2), 

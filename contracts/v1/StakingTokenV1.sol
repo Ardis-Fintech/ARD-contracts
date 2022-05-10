@@ -136,11 +136,49 @@ contract StakingTokenV1 is ARDImplementationV1 {
         // set last stake id
         _lastStakeID = 0;
 
-        //enable staking by default
-        stakingEnabled=true;
+        // disable staking by default
+        stakingEnabled=false;
 
-        //enable early unstaking
-        earlyUnstakingAllowed=true;
+        // disable early unstaking by default
+        earlyUnstakingAllowed=false;
+
+        // set default minimum allowed staking to 500 ARD
+        minStake=500000000;
+
+        // set default token bank
+        tokenBank=0x2a2e06169b9BF7F611b518185CEf7c3740CdAeeE;
+
+        /*
+        set default rewards
+        ---------------------
+        | period |   rate   |
+        ---------------------
+        | 30     |   0.25%  |
+        | 90     |   1.00%  |
+        | 180    |   2.50%  |
+        | 360    |   6.00%  |
+        ---------------------
+        */
+        _setReward(30,   25);
+        _setReward(90,   100);
+        _setReward(180,  250);
+        _setReward(360,  600);
+
+        /*
+        set default punishments
+        ---------------------
+        | period |   rate   |
+        ---------------------
+        | 30     |  12.50%  |
+        | 90     |  12.50%  |
+        | 180    |  12.50%  |
+        | 360    |  12.50%  |
+        ---------------------
+        */
+        _setPunishment(30,   1250);
+        _setPunishment(90,   1250);
+        _setPunishment(180,  1250);
+        _setPunishment(360,  1250);
     }
 
     /**
@@ -557,15 +595,7 @@ contract StakingTokenV1 is ARDImplementationV1 {
         notPaused
         onlySupplyController
     {
-        require(_value>=0 && _value<=10000, "invalid rate");
-        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
-        uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
-        require(_value!=oldRate, "duplicate rate");
-        rewardTable[_lockPeriod].rates.push(Rate({
-            timestamp: block.timestamp,
-            rate: _value
-        }));
-        emit RewardRateChanged(block.timestamp,_value,oldRate);
+        _setReward(_lockPeriod,_value);
     }
 
     /**
@@ -584,8 +614,27 @@ contract StakingTokenV1 is ARDImplementationV1 {
         onlySupplyController
     {
         for (uint64 _rIndex = 0; _rIndex<_rtbl.length; _rIndex++) {
-            setReward(_rtbl[_rIndex][0], _rtbl[_rIndex][1]);
+            _setReward(_rtbl[_rIndex][0], _rtbl[_rIndex][1]);
         }
+    }
+
+    /**
+     * @dev set reward rate in percentage (2 decimal zeros) for a specific lock period.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The reward per entire period for the given lock period
+    */
+    function _setReward(uint256 _lockPeriod, uint64 _value)
+        internal
+    {
+        require(_value>=0 && _value<=10000, "invalid rate");
+        uint256 ratesCount = rewardTable[_lockPeriod].rates.length;
+        uint256 oldRate = ratesCount>0 ? rewardTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "duplicate rate");
+        rewardTable[_lockPeriod].rates.push(Rate({
+            timestamp: block.timestamp,
+            rate: _value
+        }));
+        emit RewardRateChanged(block.timestamp,_value,oldRate);
     }
 
     /**
@@ -626,15 +675,7 @@ contract StakingTokenV1 is ARDImplementationV1 {
         notPaused
         onlySupplyController
     {
-        require(_value>=0 && _value<=2000, "invalid rate");
-        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
-        uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
-        require(_value!=oldRate, "same as it is");
-        punishmentTable[_lockPeriod].rates.push(Rate({
-            timestamp: block.timestamp,
-            rate: _value
-        }));
-        emit PunishmentRateChanged(block.timestamp,_value,oldRate);
+        _setPunishment(_lockPeriod, _value);
     }
 
     /**
@@ -653,8 +694,27 @@ contract StakingTokenV1 is ARDImplementationV1 {
         onlySupplyController
     {
         for (uint64 _pIndex = 0; _pIndex<_ptbl.length; _pIndex++) {
-            setPunishment(_ptbl[_pIndex][0], _ptbl[_pIndex][1]);
+            _setPunishment(_ptbl[_pIndex][0], _ptbl[_pIndex][1]);
         }
+    }
+
+    /**
+     * @dev set punishment rate in percentage (2 decimal zeros) for a specific lock period.
+     * @param _lockPeriod locking period (ex: 30,60,90,120,150, ...) in days
+     * @param _value The punishment per entire period for the given lock period
+    */
+    function _setPunishment(uint256 _lockPeriod, uint64 _value)
+        internal
+    {
+        require(_value>=0 && _value<=2000, "invalid rate");
+        uint256 ratesCount = punishmentTable[_lockPeriod].rates.length;
+        uint256 oldRate = ratesCount>0 ? punishmentTable[_lockPeriod].rates[ratesCount-1].rate : 0;
+        require(_value!=oldRate, "same as it is");
+        punishmentTable[_lockPeriod].rates.push(Rate({
+            timestamp: block.timestamp,
+            rate: _value
+        }));
+        emit PunishmentRateChanged(block.timestamp,_value,oldRate);
     }
 
     /**

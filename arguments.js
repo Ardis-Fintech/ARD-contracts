@@ -1,2 +1,2 @@
 // arguments.js
-module.exports = ["ArdisToken", "ARD"];
+module.exports = ["Ardis USD", "ARD"];

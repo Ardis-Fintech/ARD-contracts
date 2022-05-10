@@ -11,7 +11,7 @@ describe("Ownable ARD", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingTokenV1");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");
 
@@ -46,7 +46,7 @@ describe("Ownable ARD", function () {
 
     it("should transfer owner if initialize sets new owner", async function () {
       const ARD = await ethers.getContractFactory("StakingTokenV1");
-      const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", this.user1.address]);
+      const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", this.user1.address]);
       await instance.deployed();
       const currentOwner = await instance.owner();
       assert.strictEqual(currentOwner, this.user1.address);

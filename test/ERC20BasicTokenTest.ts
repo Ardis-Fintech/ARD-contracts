@@ -10,7 +10,7 @@ describe("ARD basic functionality", function () {
     // console.log("owner: ", owner.address);
 
     const ARD = await ethers.getContractFactory("StakingTokenV1");
-    const instance = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", owner.address]);
+    const instance = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", owner.address]);
     await instance.deployed();
     // console.log("deployed");
 
@@ -29,11 +29,11 @@ describe("ARD basic functionality", function () {
   describe("basic data", function () {
     it("has getters for the name, symbol, and decimals", async function () {
       const name = await this.token.name();
-      assert.equal(name, "ArdisToken");
+      assert.equal(name, "Ardis USD");
       const symbol = await this.token.symbol();
       assert.equal(symbol, "ARD");
       const decimals = await this.token.decimals();
-      assert.equal(decimals, 8);
+      assert.equal(decimals, 6);
     });
   });
 

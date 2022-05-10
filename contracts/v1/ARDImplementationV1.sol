@@ -142,8 +142,8 @@ contract ARDImplementationV1 is ERC20Upgradeable,
         if (owner_!=_msgSender()) {
             _transferOwnership(owner_);
         }
-        // set the number of decimals to 8
-        _decimals = 8;
+        // set the number of decimals to 6
+        _decimals = 6;
     }
 
     /**

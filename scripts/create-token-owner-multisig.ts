@@ -11,7 +11,7 @@ This will deploy the below contracts:
 async function createARDToken() {
   const ARD = await ethers.getContractFactory("StakingTokenV1");
   // deploy and transfer ownership to multisig GNOSIS wallet
-  const ard = await upgrades.deployProxy(ARD, ["ArdisToken", "ARD", gnosis_multisig_wallet_address], {
+  const ard = await upgrades.deployProxy(ARD, ["Ardis USD", "ARD", gnosis_multisig_wallet_address], {
     initializer: "initialize",
   });
   await ard.deployed();
